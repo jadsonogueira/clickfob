@@ -1,0 +1,40 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/clickfob/nextjs_space/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  cancelled
+}
+
+model Booking {
+  id              Int           @id @default(autoincrement())
+  orderNumber     String        @unique @map("order_number")
+  serviceType     String        @map("service_type")
+  servicePrice    Float         @map("service_price")
+  bookingDate     DateTime      @map("booking_date")
+  bookingTime     String        @map("booking_time")
+  customerName    String        @map("customer_name")
+  customerAddress String        @map("customer_address")
+  customerUnit    String?       @map("customer_unit")
+  customerEmail   String        @map("customer_email")
+  customerWhatsapp String       @map("customer_whatsapp")
+  additionalNotes String?       @map("additional_notes")
+  photoFrontUrl   String        @map("photo_front_url")
+  photoBackUrl    String        @map("photo_back_url")
+  photoFrontPublic Boolean      @default(true) @map("photo_front_public")
+  photoBackPublic  Boolean      @default(true) @map("photo_back_public")
+  status          BookingStatus @default(pending)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  @@map("bookings")
+}
