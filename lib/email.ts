@@ -8,23 +8,36 @@ export async function sendEmail({
   htmlBody: string;
 }): Promise<boolean> {
   try {
-    const appUrl = process.env.NEXTAUTH_URL || "";
     const appName = "ClickFob";
+
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXTAUTH_URL ||
+      "";
+
     let senderEmail = "noreply@mail.abacusai.app";
-    
+
+    // Tenta derivar um sender_email coerente do domínio do app
     try {
       if (appUrl) {
-        senderEmail = `noreply@${new URL(appUrl).hostname}`;
+        const hostname = new URL(appUrl).hostname;
+        if (hostname) senderEmail = `noreply@${hostname}`;
       }
     } catch {
-      // Use default sender email
+      // mantém default
+    }
+
+    const token = process.env.ABACUSAI_API_KEY;
+    if (!token) {
+      console.error("ABACUSAI_API_KEY is missing. Email was not sent.");
+      return false;
     }
 
     const response = await fetch("https://apps.abacus.ai/api/sendNotificationEmail", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        deployment_token: process.env.ABACUSAI_API_KEY,
+        deployment_token: token,
         subject,
         body: htmlBody,
         is_html: true,
@@ -34,7 +47,7 @@ export async function sendEmail({
       }),
     });
 
-    const result = await response.json();
+    const result = await response.json().catch(() => null);
     return result?.success === true;
   } catch (error) {
     console.error("Email send error:", error);
@@ -158,13 +171,17 @@ export function generateAdminNotificationEmail({
             <tr><td style="padding: 8px 0; color: #6b7280;">Address:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${customerAddress}</td></tr>
             ${customerUnit ? `<tr><td style="padding: 8px 0; color: #6b7280;">Unit/Buzzer:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${customerUnit}</td></tr>` : ""}
             <tr><td style="padding: 8px 0; color: #6b7280;">Email:</td><td style="padding: 8px 0; color: #374151;"><a href="mailto:${customerEmail}">${customerEmail}</a></td></tr>
-            <tr><td style="padding: 8px 0; color: #6b7280;">WhatsApp:</td><td style="padding: 8px 0; color: #374151;"><a href="https://wa.me/${customerWhatsapp.replace(/[^0-9]/g, '')}">${customerWhatsapp}</a></td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">WhatsApp:</td><td style="padding: 8px 0; color: #374151;"><a href="https://wa.me/${customerWhatsapp.replace(/[^0-9]/g, "")}">${customerWhatsapp}</a></td></tr>
           </table>
           
-          ${additionalNotes ? `
+          ${
+            additionalNotes
+              ? `
             <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Additional Notes</h3>
             <p style="background: #f3f4f6; padding: 15px; border-radius: 8px; color: #374151;">${additionalNotes}</p>
-          ` : ""}
+          `
+              : ""
+          }
           
           <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Uploaded Photos</h3>
           <div style="display: flex; gap: 10px; margin: 15px 0;">
@@ -173,7 +190,7 @@ export function generateAdminNotificationEmail({
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://wa.me/${customerWhatsapp.replace(/[^0-9]/g, '')}" style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Contact Customer on WhatsApp</a>
+            <a href="https://wa.me/${customerWhatsapp.replace(/[^0-9]/g, "")}" style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Contact Customer on WhatsApp</a>
           </div>
         </div>
       </div>
@@ -210,14 +227,14 @@ export function generateChangeRequestEmail({
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
             <tr><td style="padding: 8px 0; color: #6b7280;">Name:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${customerName}</td></tr>
             <tr><td style="padding: 8px 0; color: #6b7280;">Email:</td><td style="padding: 8px 0; color: #374151;"><a href="mailto:${customerEmail}">${customerEmail}</a></td></tr>
-            <tr><td style="padding: 8px 0; color: #6b7280;">WhatsApp:</td><td style="padding: 8px 0; color: #374151;"><a href="https://wa.me/${customerWhatsapp.replace(/[^0-9]/g, '')}">${customerWhatsapp}</a></td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">WhatsApp:</td><td style="padding: 8px 0; color: #374151;"><a href="https://wa.me/${customerWhatsapp.replace(/[^0-9]/g, "")}">${customerWhatsapp}</a></td></tr>
           </table>
           
           <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Requested Changes</h3>
           <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; color: #374151; white-space: pre-wrap;">${requestedChanges}</div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="https://wa.me/${customerWhatsapp.replace(/[^0-9]/g, '')}" style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Contact Customer on WhatsApp</a>
+            <a href="https://wa.me/${customerWhatsapp.replace(/[^0-9]/g, "")}" style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Contact Customer on WhatsApp</a>
           </div>
         </div>
       </div>
