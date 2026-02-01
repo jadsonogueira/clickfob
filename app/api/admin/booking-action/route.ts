@@ -1,9 +1,12 @@
+// app/api/admin/booking-action/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyAdminActionToken } from "@/lib/admin-actions";
+import { ADMIN_COOKIE_NAME, verifyAdminSessionToken } from "@/lib/admin-auth";
 import { sendEmail, generateBookingStatusUpdateEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const timeSlotLabels: Record<string, string> = {
   "9-11": "9:00 AM - 11:00 AM",
@@ -47,105 +50,166 @@ function htmlPage(title: string, message: string, extraHtml = "") {
 </html>`;
 }
 
+function getCookieValue(cookieHeader: string | null, name: string) {
+  if (!cookieHeader) return null;
+  const parts = cookieHeader.split(";").map((p) => p.trim());
+  const found = parts.find((p) => p.startsWith(`${name}=`));
+  if (!found) return null;
+  return found.slice(name.length + 1);
+}
+
+function normalizeOrderNumber(input: string) {
+  return String(input || "").trim().toUpperCase();
+}
+
+function normalizeAction(input: string) {
+  const a = String(input || "").trim().toLowerCase();
+  if (a === "confirm" || a === "cancel") return a;
+  return "";
+}
+
+async function updateBookingAndNotify({
+  order,
+  action,
+}: {
+  order: string;
+  action: "confirm" | "cancel";
+}) {
+  const booking = await prisma.booking.findUnique({
+    where: { orderNumber: order },
+  });
+
+  if (!booking) {
+    return {
+      ok: false as const,
+      status: 404,
+      error: `Booking ${order} was not found.`,
+    };
+  }
+
+  const newStatus = action === "confirm" ? "confirmed" : "cancelled";
+
+  // Se já está no status, não refaz
+  if (booking.status === newStatus) {
+    return {
+      ok: true as const,
+      status: 200,
+      already: true,
+      newStatus,
+      booking,
+    };
+  }
+
+  const updated = await prisma.booking.update({
+    where: { orderNumber: order },
+    data: { status: newStatus },
+  });
+
+  const baseUrl = getAppBaseUrl();
+  const manageUrl = `${baseUrl}/manage/${order}`;
+
+  const formattedDate = new Date(updated.bookingDate).toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const timeLabel = timeSlotLabels[updated.bookingTime] || updated.bookingTime;
+
+  const emailSent = await sendEmail({
+    to: updated.customerEmail,
+    subject:
+      newStatus === "confirmed"
+        ? `ClickFob Booking Confirmed - Order #${order}`
+        : `ClickFob Booking Cancelled - Order #${order}`,
+    htmlBody: generateBookingStatusUpdateEmail({
+      orderNumber: order,
+      customerName: updated.customerName,
+      status: newStatus === "confirmed" ? "confirmed" : "cancelled",
+      serviceName: updated.serviceType,
+      bookingDate: formattedDate,
+      bookingTime: timeLabel,
+      manageUrl,
+    }),
+  });
+
+  return {
+    ok: true as const,
+    status: 200,
+    already: false,
+    newStatus,
+    manageUrl,
+    emailSent,
+    booking: updated,
+  };
+}
+
+/**
+ * MODO 1: GET via botão/link no email do admin
+ * /api/admin/booking-action?order=XXX&action=confirm|cancel&token=YYY
+ * => retorna HTML
+ */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const order = (searchParams.get("order") || "").toUpperCase();
-    const action = (searchParams.get("action") || "").toLowerCase();
-    const token = searchParams.get("token") || "";
+    const order = normalizeOrderNumber(searchParams.get("order") || "");
+    const action = normalizeAction(searchParams.get("action") || "");
+    const token = String(searchParams.get("token") || "");
 
     if (!order || (action !== "confirm" && action !== "cancel") || !token) {
-      return new NextResponse(
-        htmlPage("Invalid request", "Missing or invalid parameters."),
-        { status: 400, headers: { "Content-Type": "text/html" } }
-      );
+      return new NextResponse(htmlPage("Invalid request", "Missing or invalid parameters."), {
+        status: 400,
+        headers: { "Content-Type": "text/html" },
+      });
     }
 
     const verified = verifyAdminActionToken(token);
     if (!verified.ok) {
-      return new NextResponse(
-        htmlPage("Action denied", verified.error),
-        { status: 403, headers: { "Content-Type": "text/html" } }
-      );
+      return new NextResponse(htmlPage("Action denied", verified.error), {
+        status: 403,
+        headers: { "Content-Type": "text/html" },
+      });
     }
 
     // token bate com order/action?
     if (verified.orderNumber !== order || verified.action !== action) {
-      return new NextResponse(
-        htmlPage("Action denied", "Token does not match request."),
-        { status: 403, headers: { "Content-Type": "text/html" } }
-      );
+      return new NextResponse(htmlPage("Action denied", "Token does not match request."), {
+        status: 403,
+        headers: { "Content-Type": "text/html" },
+      });
     }
 
-    const booking = await prisma.booking.findUnique({
-      where: { orderNumber: order },
+    const result = await updateBookingAndNotify({
+      order,
+      action,
     });
 
-    if (!booking) {
-      return new NextResponse(
-        htmlPage("Not found", `Booking ${order} was not found.`),
-        { status: 404, headers: { "Content-Type": "text/html" } }
-      );
+    if (!result.ok) {
+      return new NextResponse(htmlPage("Not found", result.error), {
+        status: result.status,
+        headers: { "Content-Type": "text/html" },
+      });
     }
 
-    const newStatus = action === "confirm" ? "confirmed" : "cancelled";
+    const baseUrl = getAppBaseUrl();
+    const manageUrl = `${baseUrl}/manage/${order}`;
 
-    // se já está no mesmo status, só retorna OK sem fazer nada
-    if (booking.status === newStatus) {
-      const baseUrl = getAppBaseUrl();
-      const manageUrl = `${baseUrl}/manage/${order}`;
+    if (result.already) {
       return new NextResponse(
         htmlPage(
           "Already updated",
-          `Booking ${order} is already ${newStatus}.`,
+          `Booking ${order} is already ${result.newStatus}.`,
           `<a class="btn blue" href="${manageUrl}" target="_blank" rel="noopener noreferrer">Open booking</a>`
         ),
         { status: 200, headers: { "Content-Type": "text/html" } }
       );
     }
 
-    // atualiza
-    await prisma.booking.update({
-      where: { orderNumber: order },
-      data: { status: newStatus },
-    });
-
-    // avisa o cliente por email
-    const baseUrl = getAppBaseUrl();
-    const manageUrl = `${baseUrl}/manage/${order}`;
-
-    const formattedDate = new Date(booking.bookingDate).toLocaleDateString(
-      "en-US",
-      {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }
-    );
-    const timeLabel = timeSlotLabels[booking.bookingTime] || booking.bookingTime;
-
-    await sendEmail({
-      to: booking.customerEmail,
-      subject:
-        newStatus === "confirmed"
-          ? `ClickFob Booking Confirmed - Order #${order}`
-          : `ClickFob Booking Cancelled - Order #${order}`,
-      htmlBody: generateBookingStatusUpdateEmail({
-        orderNumber: order,
-        customerName: booking.customerName,
-        status: newStatus === "confirmed" ? "confirmed" : "cancelled",
-        serviceName: booking.serviceType,
-        bookingDate: formattedDate,
-        bookingTime: timeLabel,
-        manageUrl,
-      }),
-    });
-
     return new NextResponse(
       htmlPage(
         "Success",
-        `Booking ${order} was set to ${newStatus}.`,
+        `Booking ${order} was set to ${result.newStatus}.`,
         `<a class="btn blue" href="${manageUrl}" target="_blank" rel="noopener noreferrer">Open booking</a>
          <span style="display:inline-block;width:10px"></span>
          <a class="btn gray" href="${baseUrl}" target="_blank" rel="noopener noreferrer">Home</a>`
@@ -153,10 +217,63 @@ export async function GET(request: Request) {
       { status: 200, headers: { "Content-Type": "text/html" } }
     );
   } catch (err: any) {
-    console.error("Admin action error:", err);
-    return new NextResponse(
-      htmlPage("Server error", err?.message || "Failed to process action."),
-      { status: 500, headers: { "Content-Type": "text/html" } }
+    console.error("Admin action error (GET):", err);
+    return new NextResponse(htmlPage("Server error", err?.message || "Failed to process action."), {
+      status: 500,
+      headers: { "Content-Type": "text/html" },
+    });
+  }
+}
+
+/**
+ * MODO 2: POST via área de admin (cookie assinado)
+ * /api/admin/booking-action?order=XXX&action=confirm|cancel
+ * => retorna JSON
+ */
+export async function POST(request: Request) {
+  try {
+    // Auth via cookie (admin dashboard session)
+    const cookieHeader = request.headers.get("cookie");
+    const sessionToken = getCookieValue(cookieHeader, ADMIN_COOKIE_NAME);
+
+    const sessionOk = verifyAdminSessionToken(sessionToken).ok;
+    if (!sessionOk) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const order = normalizeOrderNumber(url.searchParams.get("order") || "");
+    const action = normalizeAction(url.searchParams.get("action") || "");
+
+    if (!order || (action !== "confirm" && action !== "cancel")) {
+      return NextResponse.json(
+        { ok: false, error: "Missing or invalid parameters (order/action)" },
+        { status: 400 }
+      );
+    }
+
+    const result = await updateBookingAndNotify({
+      order,
+      action,
+    });
+
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      order,
+      status: result.newStatus,
+      already: result.already,
+      emailSent: result.already ? undefined : result.emailSent,
+      manageUrl: `${getAppBaseUrl()}/manage/${order}`,
+    });
+  } catch (err: any) {
+    console.error("Admin action error (POST):", err);
+    return NextResponse.json(
+      { ok: false, error: err?.message || "Failed to process action." },
+      { status: 500 }
     );
   }
 }
