@@ -3,6 +3,11 @@ import { prisma } from "@/lib/db";
 import { sendEmail, generateChangeRequestEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+function getAdminEmail() {
+  return process.env.ADMIN_EMAIL || "clickfobtoronto@gmail.com";
+}
 
 export async function POST(
   request: Request,
@@ -10,7 +15,8 @@ export async function POST(
 ) {
   try {
     const orderNumber = params?.orderNumber?.toUpperCase();
-    const { requestedChanges } = await request.json();
+    const body = await request.json().catch(() => null);
+    const requestedChanges = body?.requestedChanges;
 
     if (!orderNumber) {
       return NextResponse.json(
@@ -28,6 +34,12 @@ export async function POST(
 
     const booking = await prisma.booking.findUnique({
       where: { orderNumber },
+      select: {
+        orderNumber: true,
+        customerName: true,
+        customerEmail: true,
+        customerWhatsapp: true,
+      },
     });
 
     if (!booking) {
@@ -37,9 +49,11 @@ export async function POST(
       );
     }
 
-    // Send change request email to admin
-    await sendEmail({
-      to: "clickfob@gmail.com",
+    const adminEmail = getAdminEmail();
+
+    // ✅ Envia email para o admin correto
+    const ok = await sendEmail({
+      to: adminEmail,
       subject: `Change Request - Order #${orderNumber}`,
       htmlBody: generateChangeRequestEmail({
         orderNumber,
@@ -50,12 +64,20 @@ export async function POST(
       }),
     });
 
+    // Se quiser exigir sucesso do email, mantenha assim:
+    if (!ok) {
+      return NextResponse.json(
+        { success: false, error: "Failed to send change request email" },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       message: "Change request submitted successfully",
     });
-  } catch (error) {
-    console.error("Change request error:", error);
+  } catch (error: any) {
+    console.error("Change request error:", error?.message || error);
     return NextResponse.json(
       { success: false, error: "Failed to submit change request" },
       { status: 500 }
