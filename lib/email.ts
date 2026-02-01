@@ -1,67 +1,60 @@
 import nodemailer from "nodemailer";
 
-type SendEmailArgs = {
-  to: string;
-  subject: string;
-  htmlBody: string;
-};
-
-function required(name: string, value?: string) {
-  if (!value) throw new Error(`Missing env var: ${name}`);
-  return value;
-}
-
-function getTransporter() {
-  const host = required("SMTP_HOST", process.env.SMTP_HOST);
+/* --------------------------------------------------
+ * Transporter
+ * -------------------------------------------------- */
+function createTransporter() {
+  const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 587);
-  const user = required("SMTP_USER", process.env.SMTP_USER);
-  const pass = required("SMTP_PASS", process.env.SMTP_PASS);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
 
-  // timeouts bem agressivos pra não travar request
+  if (!host || !user || !pass) {
+    throw new Error("SMTP configuration is incomplete");
+  }
+
+  const secure =
+    process.env.SMTP_SECURE === "true" || port === 465;
+
   return nodemailer.createTransport({
     host,
     port,
-    secure: port === 465, // 465 geralmente é secure
-    auth: { user, pass },
+    secure,
+    auth: {
+      user,
+      pass,
+    },
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 15_000,
   });
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
-    promise
-      .then((v) => {
-        clearTimeout(t);
-        resolve(v);
-      })
-      .catch((e) => {
-        clearTimeout(t);
-        reject(e);
-      });
-  });
-}
-
-export async function sendEmail({ to, subject, htmlBody }: SendEmailArgs): Promise<boolean> {
+/* --------------------------------------------------
+ * Send Email
+ * -------------------------------------------------- */
+export async function sendEmail({
+  to,
+  subject,
+  htmlBody,
+}: {
+  to: string;
+  subject: string;
+  htmlBody: string;
+}): Promise<boolean> {
   try {
-    const transporter = getTransporter();
+    const transporter = createTransporter();
 
     const from =
       process.env.EMAIL_FROM ||
-      `ClickFob <${process.env.SMTP_USER || "no-reply@clickfob.onrender.com"}>`;
+      `ClickFob <${process.env.SMTP_USER}>`;
 
-    await withTimeout(
-      transporter.sendMail({
-        from,
-        to,
-        subject,
-        html: htmlBody,
-      }),
-      20_000,
-      "sendMail"
-    );
+    await transporter.sendMail({
+      from,
+      to,
+      subject,
+      html: htmlBody,
+    });
 
     return true;
   } catch (error) {
@@ -70,21 +63,151 @@ export async function sendEmail({ to, subject, htmlBody }: SendEmailArgs): Promi
   }
 }
 
-/* =========================
-   Templates (mantém os seus)
-   ========================= */
+/* --------------------------------------------------
+ * Customer Confirmation Email
+ * -------------------------------------------------- */
+export function generateCustomerConfirmationEmail({
+  orderNumber,
+  serviceName,
+  servicePrice,
+  bookingDate,
+  bookingTime,
+  customerName,
+  customerAddress,
+  manageUrl,
+}: {
+  orderNumber: string;
+  serviceName: string;
+  servicePrice: number;
+  bookingDate: string;
+  bookingTime: string;
+  customerName: string;
+  customerAddress: string;
+  manageUrl: string;
+}): string {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width:600px; margin:0 auto;">
+      <h2>ClickFob – Booking Confirmation</h2>
+      <p>Hi ${customerName},</p>
 
-export function generateCustomerConfirmationEmail(/* ... */): string {
-  // ✅ mantenha exatamente como você já tem
-  return "";
+      <p>Your booking was received and is pending confirmation.</p>
+
+      <p><strong>Order:</strong> ${orderNumber}</p>
+      <p><strong>Service:</strong> ${serviceName}</p>
+      <p><strong>Date:</strong> ${bookingDate}</p>
+      <p><strong>Time:</strong> ${bookingTime}</p>
+      <p><strong>Address:</strong> ${customerAddress}</p>
+      <p><strong>Total:</strong> $${servicePrice.toFixed(2)}</p>
+
+      <p style="margin-top:20px;">
+        <a href="${manageUrl}" 
+           style="background:#2563eb;color:#fff;padding:12px 20px;
+                  text-decoration:none;border-radius:6px;">
+          Manage Booking
+        </a>
+      </p>
+
+      <p>If you need help, contact us on WhatsApp.</p>
+      <p>ClickFob – GTA</p>
+    </div>
+  `;
 }
 
-export function generateAdminNotificationEmail(/* ... */): string {
-  // ✅ mantenha exatamente como você já tem
-  return "";
+/* --------------------------------------------------
+ * Admin Notification Email
+ * -------------------------------------------------- */
+export function generateAdminNotificationEmail({
+  orderNumber,
+  serviceName,
+  servicePrice,
+  bookingDate,
+  bookingTime,
+  customerName,
+  customerAddress,
+  customerUnit,
+  customerEmail,
+  customerWhatsapp,
+  additionalNotes,
+  photoFrontUrl,
+  photoBackUrl,
+}: {
+  orderNumber: string;
+  serviceName: string;
+  servicePrice: number;
+  bookingDate: string;
+  bookingTime: string;
+  customerName: string;
+  customerAddress: string;
+  customerUnit?: string;
+  customerEmail: string;
+  customerWhatsapp: string;
+  additionalNotes?: string;
+  photoFrontUrl: string;
+  photoBackUrl: string;
+}): string {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width:600px; margin:0 auto;">
+      <h2>🚨 New Booking Request</h2>
+
+      <p><strong>Order:</strong> ${orderNumber}</p>
+      <p><strong>Service:</strong> ${serviceName}</p>
+      <p><strong>Price:</strong> $${servicePrice.toFixed(2)}</p>
+      <p><strong>Date:</strong> ${bookingDate}</p>
+      <p><strong>Time:</strong> ${bookingTime}</p>
+
+      <hr />
+
+      <p><strong>Customer:</strong> ${customerName}</p>
+      <p><strong>Address:</strong> ${customerAddress}</p>
+      ${customerUnit ? `<p><strong>Unit:</strong> ${customerUnit}</p>` : ""}
+      <p><strong>Email:</strong> ${customerEmail}</p>
+      <p><strong>WhatsApp:</strong> ${customerWhatsapp}</p>
+
+      ${
+        additionalNotes
+          ? `<p><strong>Notes:</strong><br/>${additionalNotes}</p>`
+          : ""
+      }
+
+      <p>
+        <a href="${photoFrontUrl}">View Front Photo</a><br/>
+        <a href="${photoBackUrl}">View Back Photo</a>
+      </p>
+    </div>
+  `;
 }
 
-export function generateChangeRequestEmail(/* ... */): string {
-  // ✅ mantenha exatamente como você já tem
-  return "";
+/* --------------------------------------------------
+ * Change Request Email
+ * -------------------------------------------------- */
+export function generateChangeRequestEmail({
+  orderNumber,
+  customerName,
+  customerEmail,
+  customerWhatsapp,
+  requestedChanges,
+}: {
+  orderNumber: string;
+  customerName: string;
+  customerEmail: string;
+  customerWhatsapp: string;
+  requestedChanges: string;
+}): string {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width:600px; margin:0 auto;">
+      <h2>📝 Change Request</h2>
+
+      <p><strong>Order:</strong> ${orderNumber}</p>
+      <p><strong>Name:</strong> ${customerName}</p>
+      <p><strong>Email:</strong> ${customerEmail}</p>
+      <p><strong>WhatsApp:</strong> ${customerWhatsapp}</p>
+
+      <hr />
+
+      <p><strong>Requested changes:</strong></p>
+      <pre style="background:#f3f4f6;padding:12px;border-radius:6px;">
+${requestedChanges}
+      </pre>
+    </div>
+  `;
 }
