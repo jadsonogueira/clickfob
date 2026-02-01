@@ -147,25 +147,29 @@ export async function POST(request: Request) {
       }),
     });
 
-    await sendEmail({
-      to: "clickfob@gmail.com",
-      subject: `New Booking Request - Order #${orderNumber}`,
-      htmlBody: generateAdminNotificationEmail({
-        orderNumber,
-        serviceName: service.name,
-        servicePrice: service.price,
-        bookingDate: formattedDate,
-        bookingTime: timeLabel,
-        customerName,
-        customerAddress,
-        customerUnit: customerUnit || undefined,
-        customerEmail,
-        customerWhatsapp,
-        additionalNotes: additionalNotes || undefined,
-        photoFrontUrl,
-        photoBackUrl,
-      }),
-    });
+    const adminEmail =
+  process.env.ADMIN_EMAIL || "clickfobtoronto@gmail.com";
+
+await sendEmail({
+  to: adminEmail,
+  subject: `New Booking Request - Order #${orderNumber}`,
+  htmlBody: generateAdminNotificationEmail({
+    orderNumber,
+    serviceName: service.name,
+    servicePrice: service.price,
+    bookingDate: formattedDate,
+    bookingTime: timeLabel,
+    customerName,
+    customerAddress,
+    customerUnit: customerUnit || undefined,
+    customerEmail,
+    customerWhatsapp,
+    additionalNotes: additionalNotes || undefined,
+    photoFrontUrl,
+    photoBackUrl,
+  }),
+});
+
 
     return NextResponse.json({
       success: true,
