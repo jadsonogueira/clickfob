@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateUniqueOrderNumber } from "@/lib/order-utils";
+import { createAdminActionToken } from "@/lib/admin-actions";
 import {
   sendEmail,
   generateCustomerConfirmationEmail,
@@ -23,7 +24,6 @@ const timeSlotLabels: Record<string, string> = {
 };
 
 function getAppBaseUrl() {
-  // ✅ Render: NEXT_PUBLIC_APP_URL=https://clickfob.onrender.com
   const a = process.env.NEXT_PUBLIC_APP_URL;
   const b = process.env.NEXTAUTH_URL;
   return (a || b || "http://localhost:3000").replace(/\/$/, "");
@@ -32,7 +32,6 @@ function getAppBaseUrl() {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-
     const {
       serviceId,
       bookingDate,
@@ -47,7 +46,6 @@ export async function POST(request: Request) {
       photoBackPath,
     } = data ?? {};
 
-    // Validate required fields
     if (
       !serviceId ||
       !bookingDate ||
@@ -73,7 +71,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if slot is already booked
     const existingBooking = await prisma.booking.findFirst({
       where: {
         bookingDate: new Date(bookingDate),
@@ -89,10 +86,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate unique order number
     const orderNumber = await generateUniqueOrderNumber();
 
-    // Create booking
     const booking = await prisma.booking.create({
       data: {
         orderNumber,
@@ -107,11 +102,10 @@ export async function POST(request: Request) {
         customerWhatsapp,
         additionalNotes: additionalNotes || null,
 
-        // ✅ Cloudinary URLs
+        // Cloudinary URLs
         photoFrontUrl: photoFrontPath,
         photoBackUrl: photoBackPath,
 
-        // mantém se existir no schema
         photoFrontPublic: true,
         photoBackPublic: true,
 
@@ -131,12 +125,12 @@ export async function POST(request: Request) {
     const baseUrl = getAppBaseUrl();
     const manageUrl = `${baseUrl}/manage/${orderNumber}`;
 
-    // ✅ fotos já são URL (Cloudinary)
+    // photos already cloudinary URLs
     const photoFrontUrl = photoFrontPath;
     const photoBackUrl = photoBackPath;
 
-    // --- Send customer email
-    const customerEmailOk = await sendEmail({
+    // Customer email
+    await sendEmail({
       to: customerEmail,
       subject: `ClickFob Booking Confirmation - Order #${orderNumber}`,
       htmlBody: generateCustomerConfirmationEmail({
@@ -153,18 +147,21 @@ export async function POST(request: Request) {
       }),
     });
 
-    if (!customerEmailOk) {
-      console.error("Failed to send CUSTOMER email", {
-        orderNumber,
-        to: customerEmail,
-      });
-      // não vou falhar o booking por isso, mas loga forte
-    }
+    // Admin actions links
+    const confirmToken = createAdminActionToken({ orderNumber, action: "confirm" });
+    const cancelToken = createAdminActionToken({ orderNumber, action: "cancel" });
 
-    // --- Send admin email
+    const confirmUrl = `${baseUrl}/api/admin/booking-action?order=${encodeURIComponent(
+      orderNumber
+    )}&action=confirm&token=${encodeURIComponent(confirmToken)}`;
+
+    const cancelUrl = `${baseUrl}/api/admin/booking-action?order=${encodeURIComponent(
+      orderNumber
+    )}&action=cancel&token=${encodeURIComponent(cancelToken)}`;
+
     const adminEmail = process.env.ADMIN_EMAIL || "clickfobtoronto@gmail.com";
 
-    const adminEmailOk = await sendEmail({
+    await sendEmail({
       to: adminEmail,
       subject: `New Booking Request - Order #${orderNumber}`,
       htmlBody: generateAdminNotificationEmail({
@@ -181,31 +178,11 @@ export async function POST(request: Request) {
         additionalNotes: additionalNotes || undefined,
         photoFrontUrl,
         photoBackUrl,
-
-        // ✅ só use se você adicionou esse campo na função do email
-        // adminManageUrl: `${baseUrl}/admin/bookings?key=${process.env.ADMIN_DASHBOARD_KEY || ""}`,
-      } as any),
+        confirmUrl,
+        cancelUrl,
+        manageUrl,
+      }),
     });
-
-    if (!adminEmailOk) {
-      console.error("Failed to send ADMIN email", {
-        orderNumber,
-        to: adminEmail,
-      });
-
-      // ✅ aqui eu recomendo retornar erro, porque admin precisa receber.
-      // (o booking já foi criado; mas você fica sabendo que falhou)
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Booking created, but failed to notify admin. Please contact support.",
-          orderNumber,
-          bookingId: booking.id,
-        },
-        { status: 500 }
-      );
-    }
 
     return NextResponse.json({
       success: true,
