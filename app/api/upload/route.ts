@@ -4,6 +4,10 @@ import { uploadImage } from "@/lib/cloudinary";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+function isImageFile(file: File) {
+  return !!file?.type && file.type.startsWith("image/");
+}
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -18,14 +22,22 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!isImageFile(frontFile) || !isImageFile(backFile)) {
+      return NextResponse.json(
+        { success: false, error: "Only image files are allowed" },
+        { status: 400 }
+      );
+    }
+
     // Upload para o Cloudinary
+    // Pastas consistentes
     const frontUrl = await uploadImage(frontFile, "clickfob/front");
     const backUrl = await uploadImage(backFile, "clickfob/back");
 
     return NextResponse.json({
       success: true,
       frontPath: frontUrl,
-      backPath: backUrl
+      backPath: backUrl,
     });
   } catch (error: any) {
     console.error("Cloudinary upload error:", error);
@@ -35,9 +47,6 @@ export async function POST(request: Request) {
         ? error?.message || String(error)
         : "Failed to upload images";
 
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
