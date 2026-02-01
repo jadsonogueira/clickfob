@@ -1,3 +1,12 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
 model Booking {
   id               String   @id @default(auto()) @map("_id") @db.ObjectId
   orderNumber      String   @unique @map("order_number")
@@ -12,20 +21,20 @@ model Booking {
   customerWhatsapp String   @map("customer_whatsapp")
   additionalNotes  String?  @map("additional_notes")
 
-  photoFrontUrl     String  @map("photo_front_url")
-  photoBackUrl      String  @map("photo_back_url")
-  photoFrontPublic  Boolean @default(true) @map("photo_front_public")
-  photoBackPublic   Boolean @default(true) @map("photo_back_public")
+  photoFrontUrl      String  @map("photo_front_url")
+  photoBackUrl       String  @map("photo_back_url")
+  photoFrontPublic   Boolean @default(true) @map("photo_front_public")
+  photoBackPublic    Boolean @default(true) @map("photo_back_public")
 
-  status            String   @default("pending")
+  status             String   @default("pending")
 
   // ✅ NOVOS CAMPOS (opcionais)
-  statusUpdatedAt   DateTime? @map("status_updated_at")
-  confirmedAt       DateTime? @map("confirmed_at")
-  cancelledAt       DateTime? @map("cancelled_at")
+  statusUpdatedAt    DateTime? @map("status_updated_at")
+  confirmedAt        DateTime? @map("confirmed_at")
+  cancelledAt        DateTime? @map("cancelled_at")
 
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   @@map("bookings")
 }
