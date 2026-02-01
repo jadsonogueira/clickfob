@@ -448,14 +448,14 @@ export function generateBookingStatusUpdateEmail({
 
 function escapeHtml(input: string) {
   return String(input ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function escapeAttr(input: string) {
   // for href/mailto params
-  return escapeHtml(input).replaceAll("`", "&#096;");
+  return escapeHtml(input).replace(/`/g, "&#096;");
 }
