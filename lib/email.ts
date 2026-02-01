@@ -264,3 +264,47 @@ export function generateBookingStatusUpdateEmail({
     </div>
   `;
 }
+
+export function generateChangeRequestEmail({
+  orderNumber,
+  customerName,
+  customerEmail,
+  customerWhatsapp,
+  requestedChanges,
+}: {
+  orderNumber: string;
+  customerName: string;
+  customerEmail: string;
+  customerWhatsapp: string;
+  requestedChanges: string;
+}): string {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafb; padding: 20px;">
+      <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="background: #f59e0b; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">📝 Change Request</h1>
+        </div>
+        
+        <div style="padding: 30px;">
+          <div style="background: #fef3c7; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
+            <h2 style="margin: 0; color: #92400e; font-size: 22px;">Order #${orderNumber}</h2>
+          </div>
+          
+          <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Customer</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr><td style="padding: 8px 0; color: #6b7280;">Name:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${customerName}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Email:</td><td style="padding: 8px 0; color: #374151;"><a href="mailto:${customerEmail}">${customerEmail}</a></td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">WhatsApp:</td><td style="padding: 8px 0; color: #374151;"><a href="https://wa.me/${customerWhatsapp.replace(/[^0-9]/g, "")}">${customerWhatsapp}</a></td></tr>
+          </table>
+          
+          <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Requested Changes</h3>
+          <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; color: #374151; white-space: pre-wrap;">${requestedChanges}</div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://wa.me/${customerWhatsapp.replace(/[^0-9]/g, "")}" style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Contact Customer on WhatsApp</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
