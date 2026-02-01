@@ -10,6 +10,10 @@ function parseBool(value: string, fallback: boolean) {
   return ["1", "true", "yes", "y", "on"].includes(value.toLowerCase());
 }
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 function getTransport() {
   const host = getEnv("SMTP_HOST");
   const port = Number(getEnv("SMTP_PORT", "587"));
@@ -28,7 +32,45 @@ function getTransport() {
     port,
     secure, // true for 465, false for 587 (STARTTLS)
     auth: { user, pass },
+
+    // ✅ Evita ficar “preso” 2min no connect
+    connectionTimeout: 12_000,
+    greetingTimeout: 12_000,
+    socketTimeout: 20_000,
+
+    // ✅ Gmail costuma precisar STARTTLS
+    requireTLS: !secure && port === 587,
+
+    // ✅ Pool ajuda a reaproveitar conexão no Render (processo fica vivo)
+    pool: true,
+    maxConnections: 1,
+    maxMessages: 100,
+
+    // TLS mais “compatível”
+    tls: {
+      servername: host,
+    },
   });
+}
+
+async function sendWithRetry(sendFn: () => Promise<any>) {
+  // 2 tentativas: 0ms + 1200ms (simples e eficaz)
+  const delays = [0, 1200];
+  let lastErr: any;
+
+  for (let i = 0; i < delays.length; i++) {
+    if (delays[i] > 0) await sleep(delays[i]);
+    try {
+      return await sendFn();
+    } catch (err: any) {
+      lastErr = err;
+      // não faz retry em erro de auth
+      const code = String(err?.code || "");
+      if (code === "EAUTH") break;
+    }
+  }
+
+  throw lastErr;
 }
 
 export async function sendEmail({
@@ -44,17 +86,24 @@ export async function sendEmail({
     const from = getEnv("EMAIL_FROM") || `ClickFob <${getEnv("SMTP_USER")}>`;
     const transport = getTransport();
 
-    const info = await transport.sendMail({
-      from,
-      to,
-      subject,
-      html: htmlBody,
-    });
+    const info = await sendWithRetry(() =>
+      transport.sendMail({
+        from,
+        to,
+        subject,
+        html: htmlBody,
+      })
+    );
 
-    // Nodemailer returns messageId even when accepted
     return !!info?.messageId;
-  } catch (error) {
-    console.error("Email send error:", error);
+  } catch (error: any) {
+    // ✅ log mais útil (mantém o seu padrão)
+    console.error("Email send error:", {
+      message: error?.message,
+      code: error?.code,
+      command: error?.command,
+      response: error?.response,
+    });
     return false;
   }
 }
@@ -152,11 +201,9 @@ export function generateAdminNotificationEmail({
   additionalNotes,
   photoFrontUrl,
   photoBackUrl,
-  // action links (recommended)
   confirmUrl,
   cancelUrl,
   manageUrl,
-  // optional: custom HTML for the actions area
   adminActionHtml,
 }: {
   orderNumber: string;
@@ -334,10 +381,6 @@ export function generateChangeRequestEmail({
   `;
 }
 
-/**
- * Usada pelo: app/api/admin/booking-action/route.ts
- * (serviceName/bookingDate/bookingTime são opcionais para não quebrar build se algum caller não mandar)
- */
 export function generateBookingStatusUpdateEmail({
   orderNumber,
   customerName,
@@ -456,6 +499,5 @@ function escapeHtml(input: string) {
 }
 
 function escapeAttr(input: string) {
-  // for href/mailto params
   return escapeHtml(input).replace(/`/g, "&#096;");
 }
