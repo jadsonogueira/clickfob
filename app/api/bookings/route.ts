@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateUniqueOrderNumber } from "@/lib/order-utils";
-import { getFileUrl } from "@/lib/s3";
 import {
   sendEmail,
   generateCustomerConfirmationEmail,
@@ -23,10 +22,11 @@ const timeSlotLabels: Record<string, string> = {
   "15-17": "3:00 PM - 5:00 PM",
 };
 
-function isAbsoluteHttpUrl(value?: string | null) {
-  if (!value) return false;
-  const v = String(value).trim();
-  return v.startsWith("http://") || v.startsWith("https://");
+function getAppBaseUrl() {
+  // ✅ Coloque isso no Render: NEXT_PUBLIC_APP_URL=https://clickfob.onrender.com
+  const a = process.env.NEXT_PUBLIC_APP_URL;
+  const b = process.env.NEXTAUTH_URL;
+  return (a || b || "http://localhost:3000").replace(/\/$/, "");
 }
 
 export async function POST(request: Request) {
@@ -46,7 +46,6 @@ export async function POST(request: Request) {
       photoBackPath,
     } = data ?? {};
 
-    // Validate required fields
     if (
       !serviceId ||
       !bookingDate ||
@@ -72,7 +71,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if slot is already booked
     const existingBooking = await prisma.booking.findFirst({
       where: {
         bookingDate: new Date(bookingDate),
@@ -88,10 +86,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate unique order number
     const orderNumber = await generateUniqueOrderNumber();
 
-    // Create booking (salva URL direto — Cloudinary)
     const booking = await prisma.booking.create({
       data: {
         orderNumber,
@@ -106,28 +102,17 @@ export async function POST(request: Request) {
         customerWhatsapp,
         additionalNotes: additionalNotes || null,
 
-        // ✅ Cloudinary URLs ficam aqui
+        // ✅ Agora salvamos URL final do Cloudinary:
         photoFrontUrl: photoFrontPath,
         photoBackUrl: photoBackPath,
 
-        // Mantemos por compatibilidade com legado do S3 (não atrapalha)
+        // se esses campos existirem no schema, mantém
         photoFrontPublic: true,
         photoBackPublic: true,
 
         status: "pending",
       },
     });
-
-    // ✅ URLs para e-mail:
-    // - Se já for URL absoluta (Cloudinary), usa direto
-    // - Se for legado (path relativo), assina/monta via getFileUrl
-    const emailFrontUrl = isAbsoluteHttpUrl(photoFrontPath)
-      ? photoFrontPath
-      : await getFileUrl(photoFrontPath, true);
-
-    const emailBackUrl = isAbsoluteHttpUrl(photoBackPath)
-      ? photoBackPath
-      : await getFileUrl(photoBackPath, true);
 
     const formattedDate = new Date(bookingDate).toLocaleDateString("en-US", {
       weekday: "long",
@@ -138,15 +123,13 @@ export async function POST(request: Request) {
 
     const timeLabel = timeSlotLabels[bookingTime] || bookingTime;
 
-    // Base URL do site
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.NEXTAUTH_URL ||
-      "http://localhost:3000";
-
+    const baseUrl = getAppBaseUrl();
     const manageUrl = `${baseUrl}/manage/${orderNumber}`;
 
-    // Send customer confirmation email
+    // ✅ fotos já são URL (Cloudinary) — manda direto pro email
+    const photoFrontUrl = photoFrontPath;
+    const photoBackUrl = photoBackPath;
+
     await sendEmail({
       to: customerEmail,
       subject: `ClickFob Booking Confirmation - Order #${orderNumber}`,
@@ -164,7 +147,6 @@ export async function POST(request: Request) {
       }),
     });
 
-    // Send admin notification email
     await sendEmail({
       to: "clickfob@gmail.com",
       subject: `New Booking Request - Order #${orderNumber}`,
@@ -180,8 +162,8 @@ export async function POST(request: Request) {
         customerEmail,
         customerWhatsapp,
         additionalNotes: additionalNotes || undefined,
-        photoFrontUrl: emailFrontUrl,
-        photoBackUrl: emailBackUrl,
+        photoFrontUrl,
+        photoBackUrl,
       }),
     });
 
