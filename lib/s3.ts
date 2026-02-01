@@ -11,20 +11,8 @@ import { createS3Client, getBucketConfig } from "./aws-config";
 
 const s3Client = createS3Client();
 
-function normalizeMaybeAbsoluteUrl(value?: string | null) {
-  if (!value) return "";
-  const v = String(value).trim();
-
-  // Se alguém salvou "/https://..." no banco por engano
-  if (v.startsWith("/http://") || v.startsWith("/https://")) return v.slice(1);
-
-  return v;
-}
-
-function isAbsoluteHttpUrl(value?: string | null) {
-  if (!value) return false;
-  const v = String(value).trim();
-  return v.startsWith("http://") || v.startsWith("https://");
+function isAbsoluteUrl(value: string) {
+  return /^https?:\/\//i.test(value);
 }
 
 export async function generatePresignedUploadUrl(
@@ -54,27 +42,21 @@ export async function getFileUrl(
   cloud_storage_path: string,
   isPublic: boolean = false
 ): Promise<string> {
-  const normalized = normalizeMaybeAbsoluteUrl(cloud_storage_path);
-
-  // ✅ Cloudinary (ou qualquer URL absoluta) -> retorna como está
-  if (isAbsoluteHttpUrl(normalized)) {
-    return normalized;
+  // ✅ Se já for URL (Cloudinary, etc), não mexe.
+  if (cloud_storage_path && isAbsoluteUrl(cloud_storage_path)) {
+    return cloud_storage_path;
   }
-
-  // ✅ Se vier vazio, evita quebrar
-  if (!normalized) return "";
 
   const { bucketName } = getBucketConfig();
   const region = process.env.AWS_REGION || "us-east-1";
 
-  // Mantém comportamento atual
   if (isPublic) {
-    return `https://${bucketName}.s3.${region}.amazonaws.com/${normalized.replace(/^\/+/, "")}`;
+    return `https://${bucketName}.s3.${region}.amazonaws.com/${cloud_storage_path}`;
   }
 
   const command = new GetObjectCommand({
     Bucket: bucketName,
-    Key: normalized,
+    Key: cloud_storage_path,
     ResponseContentDisposition: "attachment",
   });
 
@@ -82,18 +64,15 @@ export async function getFileUrl(
 }
 
 export async function deleteFile(cloud_storage_path: string): Promise<void> {
-  const normalized = normalizeMaybeAbsoluteUrl(cloud_storage_path);
-
-  // ✅ Se for URL absoluta (Cloudinary), não tenta deletar do S3
-  if (isAbsoluteHttpUrl(normalized)) return;
-
-  if (!normalized) return;
+  // ✅ Se for URL (Cloudinary), não tem como deletar via S3 aqui.
+  // Se quiser deletar Cloudinary, criamos um delete específico depois.
+  if (cloud_storage_path && isAbsoluteUrl(cloud_storage_path)) return;
 
   const { bucketName } = getBucketConfig();
 
   const command = new DeleteObjectCommand({
     Bucket: bucketName,
-    Key: normalized,
+    Key: cloud_storage_path,
   });
 
   await s3Client.send(command);
