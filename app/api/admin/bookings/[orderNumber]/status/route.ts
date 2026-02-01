@@ -1,72 +1,55 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import {
+  ADMIN_COOKIE_NAME,
+  verifyAdminSessionToken,
+} from "@/lib/admin-auth";
+import { sendEmail, generateBookingStatusUpdateEmail } from "@/lib/email";
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-
-function normalizeStatus(status: string) {
-  const s = String(status || "").toLowerCase();
-  if (s === "confirmed" || s === "cancelled" || s === "pending") return s;
-  return "";
-}
-
-export async function POST(
-  request: Request,
+export async function PATCH(
+  req: Request,
   { params }: { params: { orderNumber: string } }
 ) {
-  try {
-    const orderNumber = params?.orderNumber?.toUpperCase();
-    if (!orderNumber) {
-      return NextResponse.json(
-        { success: false, error: "Order number is required" },
-        { status: 400 }
-      );
-    }
+  const token = req.headers
+    .get("cookie")
+    ?.split(";")
+    .map((p) => p.trim())
+    .find((p) => p.startsWith(`${ADMIN_COOKIE_NAME}=`))
+    ?.split("=")[1];
 
-    const body = await request.json().catch(() => ({}));
-    const nextStatus = normalizeStatus(body?.status);
-
-    if (!nextStatus || (nextStatus !== "confirmed" && nextStatus !== "cancelled")) {
-      return NextResponse.json(
-        { success: false, error: "Invalid status" },
-        { status: 400 }
-      );
-    }
-
-    const secret = String(body?.secret || "");
-    const expected = String(process.env.ADMIN_ACTION_SECRET || "");
-
-    if (!expected || secret !== expected) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const booking = await prisma.booking.findUnique({ where: { orderNumber } });
-
-    if (!booking) {
-      return NextResponse.json(
-        { success: false, error: "Booking not found" },
-        { status: 404 }
-      );
-    }
-
-    if (booking.status === nextStatus) {
-      return NextResponse.json({ success: true, already: true });
-    }
-
-    await prisma.booking.update({
-      where: { orderNumber },
-      data: { status: nextStatus },
-    });
-
-    return NextResponse.json({ success: true, status: nextStatus });
-  } catch (err) {
-    console.error("Admin status update error:", err);
-    return NextResponse.json(
-      { success: false, error: "Failed to update status" },
-      { status: 500 }
-    );
+  if (!verifyAdminSessionToken(token).ok) {
+    return NextResponse.json({ ok: false }, { status: 401 });
   }
+
+  const { status } = await req.json();
+  if (!["confirmed", "cancelled"].includes(status)) {
+    return NextResponse.json({ ok: false }, { status: 400 });
+  }
+
+  const booking = await prisma.booking.update({
+    where: { orderNumber: params.orderNumber },
+    data: {
+      status,
+      statusUpdatedAt: new Date(),
+      confirmedAt: status === "confirmed" ? new Date() : null,
+      cancelledAt: status === "cancelled" ? new Date() : null,
+    },
+  });
+
+  // email
+  await sendEmail({
+    to: booking.customerEmail,
+    subject: `ClickFob Booking ${status}`,
+    htmlBody: generateBookingStatusUpdateEmail({
+      orderNumber: booking.orderNumber,
+      customerName: booking.customerName,
+      status,
+      serviceName: booking.serviceType,
+      bookingDate: booking.bookingDate.toDateString(),
+      bookingTime: booking.bookingTime,
+      manageUrl: `${process.env.NEXT_PUBLIC_APP_URL}/manage/${booking.orderNumber}`,
+    }),
+  });
+
+  return NextResponse.json({ ok: true });
 }
