@@ -1,35 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getFileUrl } from "@/lib/s3";
 
 export const dynamic = "force-dynamic";
-
-function isAbsoluteHttpUrl(value?: string | null) {
-  if (!value) return false;
-  const v = String(value).trim();
-  return v.startsWith("http://") || v.startsWith("https://");
-}
-
-function normalizeMaybeAbsoluteUrl(value?: string | null) {
-  if (!value) return "";
-  const v = String(value).trim();
-
-  // Se veio "/https://..." (bem comum quando alguém salva com "/" na frente)
-  if (v.startsWith("/http://") || v.startsWith("/https://")) return v.slice(1);
-
-  return v;
-}
-
-async function resolvePhotoUrl(raw: string | null, isPublic?: boolean | null) {
-  const normalized = normalizeMaybeAbsoluteUrl(raw);
-
-  // ✅ Cloudinary (ou qualquer URL absoluta) => retorna direto, não passa no getFileUrl
-  if (isAbsoluteHttpUrl(normalized)) return normalized;
-
-  // ✅ Caso legado: path relativo => usa sua função atual (S3/abaccus)
-  if (!normalized) return "";
-  return await getFileUrl(normalized, !!isPublic);
-}
 
 export async function GET(
   request: Request,
@@ -56,16 +28,7 @@ export async function GET(
       );
     }
 
-    // ✅ Resolve URLs corretamente (Cloudinary direto, S3 só quando for path relativo)
-    const photoFrontUrl = await resolvePhotoUrl(
-      booking.photoFrontUrl,
-      booking.photoFrontPublic
-    );
-    const photoBackUrl = await resolvePhotoUrl(
-      booking.photoBackUrl,
-      booking.photoBackPublic
-    );
-
+    // ✅ Agora são URLs diretas (Cloudinary), então devolve direto:
     return NextResponse.json({
       success: true,
       booking: {
@@ -79,8 +42,8 @@ export async function GET(
         customerUnit: booking.customerUnit,
         customerEmail: booking.customerEmail,
         status: booking.status,
-        photoFrontUrl,
-        photoBackUrl,
+        photoFrontUrl: booking.photoFrontUrl,
+        photoBackUrl: booking.photoBackUrl,
         createdAt: booking.createdAt,
       },
     });
