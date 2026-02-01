@@ -1,8 +1,31 @@
-import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand } from "@aws-sdk/client-s3";
+import {
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createS3Client, getBucketConfig } from "./aws-config";
 
 const s3Client = createS3Client();
+
+function normalizeMaybeAbsoluteUrl(value?: string | null) {
+  if (!value) return "";
+  const v = String(value).trim();
+
+  // Se alguém salvou "/https://..." no banco por engano
+  if (v.startsWith("/http://") || v.startsWith("/https://")) return v.slice(1);
+
+  return v;
+}
+
+function isAbsoluteHttpUrl(value?: string | null) {
+  if (!value) return false;
+  const v = String(value).trim();
+  return v.startsWith("http://") || v.startsWith("https://");
+}
 
 export async function generatePresignedUploadUrl(
   fileName: string,
@@ -10,7 +33,7 @@ export async function generatePresignedUploadUrl(
   isPublic: boolean = false
 ): Promise<{ uploadUrl: string; cloud_storage_path: string }> {
   const { bucketName, folderPrefix } = getBucketConfig();
-  
+
   const cloud_storage_path = isPublic
     ? `${folderPrefix}public/uploads/${Date.now()}-${fileName}`
     : `${folderPrefix}uploads/${Date.now()}-${fileName}`;
@@ -31,16 +54,27 @@ export async function getFileUrl(
   cloud_storage_path: string,
   isPublic: boolean = false
 ): Promise<string> {
+  const normalized = normalizeMaybeAbsoluteUrl(cloud_storage_path);
+
+  // ✅ Cloudinary (ou qualquer URL absoluta) -> retorna como está
+  if (isAbsoluteHttpUrl(normalized)) {
+    return normalized;
+  }
+
+  // ✅ Se vier vazio, evita quebrar
+  if (!normalized) return "";
+
   const { bucketName } = getBucketConfig();
   const region = process.env.AWS_REGION || "us-east-1";
 
+  // Mantém comportamento atual
   if (isPublic) {
-    return `https://${bucketName}.s3.${region}.amazonaws.com/${cloud_storage_path}`;
+    return `https://${bucketName}.s3.${region}.amazonaws.com/${normalized.replace(/^\/+/, "")}`;
   }
 
   const command = new GetObjectCommand({
     Bucket: bucketName,
-    Key: cloud_storage_path,
+    Key: normalized,
     ResponseContentDisposition: "attachment",
   });
 
@@ -48,11 +82,18 @@ export async function getFileUrl(
 }
 
 export async function deleteFile(cloud_storage_path: string): Promise<void> {
+  const normalized = normalizeMaybeAbsoluteUrl(cloud_storage_path);
+
+  // ✅ Se for URL absoluta (Cloudinary), não tenta deletar do S3
+  if (isAbsoluteHttpUrl(normalized)) return;
+
+  if (!normalized) return;
+
   const { bucketName } = getBucketConfig();
 
   const command = new DeleteObjectCommand({
     Bucket: bucketName,
-    Key: cloud_storage_path,
+    Key: normalized,
   });
 
   await s3Client.send(command);
@@ -63,7 +104,7 @@ export async function initiateMultipartUpload(
   isPublic: boolean = false
 ): Promise<{ uploadId: string; cloud_storage_path: string }> {
   const { bucketName, folderPrefix } = getBucketConfig();
-  
+
   const cloud_storage_path = isPublic
     ? `${folderPrefix}public/uploads/${Date.now()}-${fileName}`
     : `${folderPrefix}uploads/${Date.now()}-${fileName}`;
