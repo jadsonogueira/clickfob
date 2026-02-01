@@ -1,8 +1,20 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Calendar, MapPin, Clock, DollarSign, MessageCircle, AlertCircle, CheckCircle, XCircle, Loader2, ArrowLeft, Send, Image as ImageIcon } from "lucide-react";
+import {
+  Calendar,
+  MapPin,
+  Clock,
+  MessageCircle,
+  AlertCircle,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  ArrowLeft,
+  Send,
+  Image as ImageIcon,
+} from "lucide-react";
 
 interface Booking {
   orderNumber: string;
@@ -48,7 +60,9 @@ function StatusBadge({ status }: { status: string }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${styles[status] || styles.pending}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${
+        styles[status] || styles.pending
+      }`}
     >
       {icons[status]} {labels[status] || "Unknown"}
     </span>
@@ -63,6 +77,21 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
   const [changeRequest, setChangeRequest] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  // ✅ Normaliza URL (Cloudinary absoluta fica intacta; "/https://..." vira "https://...")
+  const normalizeImageUrl = useCallback((input?: string | null) => {
+    if (!input) return "";
+    const value = String(input).trim();
+
+    if (value.startsWith("http://") || value.startsWith("https://")) return value;
+    if (value.startsWith("/http://") || value.startsWith("/https://")) return value.slice(1);
+
+    // dataURL (caso apareça)
+    if (value.startsWith("data:image/")) return value;
+
+    // path relativo (legado)
+    return `/${value.replace(/^\/+/, "")}`;
+  }, []);
 
   const fetchBooking = useCallback(async () => {
     try {
@@ -112,6 +141,20 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
     }
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  // ✅ URLs prontas e seguras para render
+  const frontUrl = useMemo(() => normalizeImageUrl(booking?.photoFrontUrl), [booking?.photoFrontUrl, normalizeImageUrl]);
+  const backUrl = useMemo(() => normalizeImageUrl(booking?.photoBackUrl), [booking?.photoBackUrl, normalizeImageUrl]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -143,16 +186,6 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
       </div>
     );
   }
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -232,36 +265,46 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
                 <ImageIcon className="text-blue-600" size={20} />
                 <p className="font-medium text-gray-900">Uploaded Photos</p>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
+                {/* Front */}
                 <div>
                   <p className="text-sm text-gray-500 mb-2">Front</p>
-                  <a
-                    href={booking?.photoFrontUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block aspect-video bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
-                  >
-                    <img
-                      src={booking?.photoFrontUrl}
-                      alt="Front photo"
-                      className="w-full h-full object-cover"
-                    />
-                  </a>
+
+                  {frontUrl ? (
+                    <a
+                      href={frontUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block aspect-video bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                    >
+                      <img src={frontUrl} alt="Front photo" className="w-full h-full object-cover" />
+                    </a>
+                  ) : (
+                    <div className="block aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center text-gray-500 text-sm">
+                      No image
+                    </div>
+                  )}
                 </div>
+
+                {/* Back */}
                 <div>
                   <p className="text-sm text-gray-500 mb-2">Back</p>
-                  <a
-                    href={booking?.photoBackUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block aspect-video bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
-                  >
-                    <img
-                      src={booking?.photoBackUrl}
-                      alt="Back photo"
-                      className="w-full h-full object-cover"
-                    />
-                  </a>
+
+                  {backUrl ? (
+                    <a
+                      href={backUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block aspect-video bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                    >
+                      <img src={backUrl} alt="Back photo" className="w-full h-full object-cover" />
+                    </a>
+                  ) : (
+                    <div className="block aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center text-gray-500 text-sm">
+                      No image
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -313,11 +356,7 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
                       disabled={isSubmitting || !changeRequest?.trim()}
                       className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition-all disabled:opacity-50"
                     >
-                      {isSubmitting ? (
-                        <Loader2 className="animate-spin" size={20} />
-                      ) : (
-                        <Send size={20} />
-                      )}
+                      {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
                       Submit Request
                     </button>
                   </div>
@@ -338,6 +377,13 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
                 </div>
               )}
             </div>
+
+            {/* Optional: show error below if exists */}
+            {error && booking && (
+              <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                {error}
+              </div>
+            )}
           </div>
         </div>
       </div>
