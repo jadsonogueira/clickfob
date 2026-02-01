@@ -5,6 +5,13 @@ import { sendEmail, generateBookingStatusUpdateEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
+const timeSlotLabels: Record<string, string> = {
+  "9-11": "9:00 AM - 11:00 AM",
+  "11-13": "11:00 AM - 1:00 PM",
+  "13-15": "1:00 PM - 3:00 PM",
+  "15-17": "3:00 PM - 5:00 PM",
+};
+
 function getAppBaseUrl() {
   const a = process.env.NEXT_PUBLIC_APP_URL;
   const b = process.env.NEXTAUTH_URL;
@@ -70,7 +77,10 @@ export async function GET(request: Request) {
       );
     }
 
-    const booking = await prisma.booking.findUnique({ where: { orderNumber: order } });
+    const booking = await prisma.booking.findUnique({
+      where: { orderNumber: order },
+    });
+
     if (!booking) {
       return new NextResponse(
         htmlPage("Not found", `Booking ${order} was not found.`),
@@ -104,6 +114,17 @@ export async function GET(request: Request) {
     const baseUrl = getAppBaseUrl();
     const manageUrl = `${baseUrl}/manage/${order}`;
 
+    const formattedDate = new Date(booking.bookingDate).toLocaleDateString(
+      "en-US",
+      {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }
+    );
+    const timeLabel = timeSlotLabels[booking.bookingTime] || booking.bookingTime;
+
     await sendEmail({
       to: booking.customerEmail,
       subject:
@@ -114,6 +135,9 @@ export async function GET(request: Request) {
         orderNumber: order,
         customerName: booking.customerName,
         status: newStatus === "confirmed" ? "confirmed" : "cancelled",
+        serviceName: booking.serviceType,
+        bookingDate: formattedDate,
+        bookingTime: timeLabel,
         manageUrl,
       }),
     });
