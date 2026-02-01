@@ -2,7 +2,20 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Key, Radio, Settings, ChevronLeft, ChevronRight, Check, Upload, Calendar, User, Loader2, Camera, AlertCircle } from "lucide-react";
+import {
+  Key,
+  Radio,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Upload,
+  Calendar,
+  User,
+  Loader2,
+  Camera,
+  AlertCircle,
+} from "lucide-react";
 
 const services = [
   { id: "fob-lf", name: "Fob Low Frequency (LF)", price: 35, icon: Key },
@@ -68,6 +81,21 @@ export default function BookingFlow() {
   });
 
   const selectedService = services.find((s) => s.id === bookingData.serviceId);
+
+  // ✅ Normaliza URL/Path (evita prefixar site em URL absoluta)
+  const normalizeImageUrl = (input?: string | null) => {
+    if (!input) return "";
+    const value = String(input).trim();
+
+    if (value.startsWith("http://") || value.startsWith("https://")) return value;
+    if (value.startsWith("/http://") || value.startsWith("/https://")) return value.slice(1);
+
+    // Preview local (dataURL)
+    if (value.startsWith("data:image/")) return value;
+
+    // fallback: path relativo
+    return `/${value.replace(/^\/+/, "")}`;
+  };
 
   const fetchBookedSlots = useCallback(async (date: string) => {
     try {
@@ -167,7 +195,7 @@ export default function BookingFlow() {
       const uploadData = await uploadRes.json();
 
       if (!uploadData?.success) {
-        throw new Error("Failed to upload photos");
+        throw new Error(uploadData?.error || "Failed to upload photos");
       }
 
       // Create booking
@@ -343,7 +371,7 @@ export default function BookingFlow() {
                   {bookingData.photoFrontPreview ? (
                     <div className="relative aspect-video">
                       <img
-                        src={bookingData.photoFrontPreview}
+                        src={normalizeImageUrl(bookingData.photoFrontPreview)}
                         alt="Front preview"
                         className="w-full h-full object-cover rounded-lg"
                       />
@@ -398,7 +426,7 @@ export default function BookingFlow() {
                   {bookingData.photoBackPreview ? (
                     <div className="relative aspect-video">
                       <img
-                        src={bookingData.photoBackPreview}
+                        src={normalizeImageUrl(bookingData.photoBackPreview)}
                         alt="Back preview"
                         className="w-full h-full object-cover rounded-lg"
                       />
@@ -544,9 +572,7 @@ export default function BookingFlow() {
                   }`}
                   placeholder="John Doe"
                 />
-                {errors?.name && (
-                  <p className="text-red-500 text-sm mt-1">{errors.name}</p>
-                )}
+                {errors?.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
               </div>
 
               <div>
@@ -564,9 +590,7 @@ export default function BookingFlow() {
                   }`}
                   placeholder="123 Main Street, Toronto, ON"
                 />
-                {errors?.address && (
-                  <p className="text-red-500 text-sm mt-1">{errors.address}</p>
-                )}
+                {errors?.address && <p className="text-red-500 text-sm mt-1">{errors.address}</p>}
               </div>
 
               <div>
@@ -599,9 +623,7 @@ export default function BookingFlow() {
                   }`}
                   placeholder="john@example.com"
                 />
-                {errors?.email && (
-                  <p className="text-red-500 text-sm mt-1">{errors.email}</p>
-                )}
+                {errors?.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
               </div>
 
               <div>
@@ -619,9 +641,7 @@ export default function BookingFlow() {
                   }`}
                   placeholder="+1 (416) 123-4567"
                 />
-                {errors?.whatsapp && (
-                  <p className="text-red-500 text-sm mt-1">{errors.whatsapp}</p>
-                )}
+                {errors?.whatsapp && <p className="text-red-500 text-sm mt-1">{errors.whatsapp}</p>}
               </div>
 
               <div>
@@ -653,9 +673,7 @@ export default function BookingFlow() {
                 <h3 className="font-semibold text-gray-700 mb-3">Service</h3>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-900">{selectedService?.name}</span>
-                  <span className="text-xl font-bold text-blue-600">
-                    ${selectedService?.price}.00
-                  </span>
+                  <span className="text-xl font-bold text-blue-600">${selectedService?.price}.00</span>
                 </div>
               </div>
 
@@ -685,19 +703,31 @@ export default function BookingFlow() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Front</p>
-                    <img
-                      src={bookingData.photoFrontPreview}
-                      alt="Front"
-                      className="w-full aspect-video object-cover rounded-lg"
-                    />
+                    {bookingData.photoFrontPreview ? (
+                      <img
+                        src={normalizeImageUrl(bookingData.photoFrontPreview)}
+                        alt="Front"
+                        className="w-full aspect-video object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="w-full aspect-video rounded-lg bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
+                        No image
+                      </div>
+                    )}
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Back</p>
-                    <img
-                      src={bookingData.photoBackPreview}
-                      alt="Back"
-                      className="w-full aspect-video object-cover rounded-lg"
-                    />
+                    {bookingData.photoBackPreview ? (
+                      <img
+                        src={normalizeImageUrl(bookingData.photoBackPreview)}
+                        alt="Back"
+                        className="w-full aspect-video object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="w-full aspect-video rounded-lg bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
+                        No image
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
