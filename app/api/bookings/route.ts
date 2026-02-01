@@ -129,8 +129,28 @@ export async function POST(request: Request) {
     const photoFrontUrl = photoFrontPath;
     const photoBackUrl = photoBackPath;
 
-    // Customer email
-    await sendEmail({
+    // Admin actions links
+    const confirmToken = createAdminActionToken({
+      orderNumber,
+      action: "confirm",
+    });
+    const cancelToken = createAdminActionToken({
+      orderNumber,
+      action: "cancel",
+    });
+
+    const confirmUrl = `${baseUrl}/api/admin/booking-action?order=${encodeURIComponent(
+      orderNumber
+    )}&action=confirm&token=${encodeURIComponent(confirmToken)}`;
+
+    const cancelUrl = `${baseUrl}/api/admin/booking-action?order=${encodeURIComponent(
+      orderNumber
+    )}&action=cancel&token=${encodeURIComponent(cancelToken)}`;
+
+    const adminEmail = process.env.ADMIN_EMAIL || "clickfobtoronto@gmail.com";
+
+    // ✅ NÃO TRAVAR A RESPOSTA: dispara emails sem await
+    const customerEmailPromise = sendEmail({
       to: customerEmail,
       subject: `ClickFob Booking Confirmation - Order #${orderNumber}`,
       htmlBody: generateCustomerConfirmationEmail({
@@ -147,21 +167,7 @@ export async function POST(request: Request) {
       }),
     });
 
-    // Admin actions links
-    const confirmToken = createAdminActionToken({ orderNumber, action: "confirm" });
-    const cancelToken = createAdminActionToken({ orderNumber, action: "cancel" });
-
-    const confirmUrl = `${baseUrl}/api/admin/booking-action?order=${encodeURIComponent(
-      orderNumber
-    )}&action=confirm&token=${encodeURIComponent(confirmToken)}`;
-
-    const cancelUrl = `${baseUrl}/api/admin/booking-action?order=${encodeURIComponent(
-      orderNumber
-    )}&action=cancel&token=${encodeURIComponent(cancelToken)}`;
-
-    const adminEmail = process.env.ADMIN_EMAIL || "clickfobtoronto@gmail.com";
-
-    await sendEmail({
+    const adminEmailPromise = sendEmail({
       to: adminEmail,
       subject: `New Booking Request - Order #${orderNumber}`,
       htmlBody: generateAdminNotificationEmail({
@@ -184,6 +190,26 @@ export async function POST(request: Request) {
       }),
     });
 
+    // Loga falhas sem afetar o usuário
+    void Promise.allSettled([customerEmailPromise, adminEmailPromise]).then(
+      (results) => {
+        const [r1, r2] = results;
+        if (r1.status === "rejected") {
+          console.error(
+            `Email to customer failed (order ${orderNumber}):`,
+            r1.reason
+          );
+        }
+        if (r2.status === "rejected") {
+          console.error(
+            `Email to admin failed (order ${orderNumber}):`,
+            r2.reason
+          );
+        }
+      }
+    );
+
+    // ✅ responde rápido
     return NextResponse.json({
       success: true,
       orderNumber,
