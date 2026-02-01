@@ -51,6 +51,7 @@ export async function sendEmail({
       html: htmlBody,
     });
 
+    // Nodemailer returns messageId even when accepted
     return !!info?.messageId;
   } catch (error) {
     console.error("Email send error:", error);
@@ -151,6 +152,11 @@ export function generateAdminNotificationEmail({
   additionalNotes,
   photoFrontUrl,
   photoBackUrl,
+  // action links (recommended)
+  confirmUrl,
+  cancelUrl,
+  manageUrl,
+  // optional: custom HTML for the actions area
   adminActionHtml,
 }: {
   orderNumber: string;
@@ -166,8 +172,33 @@ export function generateAdminNotificationEmail({
   additionalNotes?: string;
   photoFrontUrl: string;
   photoBackUrl: string;
+  confirmUrl?: string;
+  cancelUrl?: string;
+  manageUrl?: string;
   adminActionHtml?: string;
 }): string {
+  const actionsHtml =
+    adminActionHtml ||
+    (confirmUrl && cancelUrl
+      ? `
+        <div style="margin-top: 18px; padding: 16px; border-radius: 10px; background: #f8fafc; border: 1px solid #e5e7eb;">
+          <p style="margin:0 0 10px 0; color:#111827; font-weight:700;">Admin actions</p>
+          <div style="display:flex; gap: 10px; flex-wrap: wrap;">
+            <a href="${confirmUrl}" style="display:inline-block; background:#16a34a; color:white; padding: 12px 18px; border-radius: 10px; text-decoration:none; font-weight:800;">Confirm</a>
+            <a href="${cancelUrl}" style="display:inline-block; background:#dc2626; color:white; padding: 12px 18px; border-radius: 10px; text-decoration:none; font-weight:800;">Cancel</a>
+            ${
+              manageUrl
+                ? `<a href="${manageUrl}" style="display:inline-block; background:#2563eb; color:white; padding: 12px 18px; border-radius: 10px; text-decoration:none; font-weight:800;">Open booking</a>`
+                : ""
+            }
+          </div>
+          <p style="margin:10px 0 0 0; color:#6b7280; font-size:12px; line-height:1.4;">
+            These links are single-use/expiring and require a valid admin token.
+          </p>
+        </div>
+      `
+      : "");
+
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafb; padding: 20px;">
       <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -238,11 +269,7 @@ export function generateAdminNotificationEmail({
             <a href="${photoBackUrl}" style="display: inline-block; background: #3b82f6; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600;">View Back Photo</a>
           </div>
 
-          ${
-            adminActionHtml
-              ? `<div style="margin-top: 20px;">${adminActionHtml}</div>`
-              : ""
-          }
+          ${actionsHtml}
 
           <div style="text-align: center; margin: 30px 0;">
             <a href="https://wa.me/${customerWhatsapp.replace(/[^0-9]/g, "")}" style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Contact Customer on WhatsApp</a>
@@ -308,25 +335,25 @@ export function generateChangeRequestEmail({
 }
 
 /**
- * ✅ Ajustado: serviceName/bookingDate/bookingTime agora são opcionais
- * Assim seu route.ts atual compila sem precisar mudar.
+ * Usada pelo: app/api/admin/booking-action/route.ts
+ * (serviceName/bookingDate/bookingTime são opcionais para não quebrar build se algum caller não mandar)
  */
 export function generateBookingStatusUpdateEmail({
   orderNumber,
   customerName,
   status,
-  manageUrl,
   serviceName,
   bookingDate,
   bookingTime,
+  manageUrl,
 }: {
   orderNumber: string;
   customerName: string;
   status: "pending" | "confirmed" | "cancelled";
-  manageUrl: string;
   serviceName?: string;
   bookingDate?: string;
   bookingTime?: string;
+  manageUrl: string;
 }): string {
   const statusLabel =
     status === "confirmed"
@@ -336,9 +363,11 @@ export function generateBookingStatusUpdateEmail({
       : "Pending ⏳";
 
   const statusColor =
-    status === "confirmed" ? "#16a34a" : status === "cancelled" ? "#dc2626" : "#f59e0b";
-
-  const hasDetails = !!serviceName || !!bookingDate || !!bookingTime;
+    status === "confirmed"
+      ? "#16a34a"
+      : status === "cancelled"
+      ? "#dc2626"
+      : "#f59e0b";
 
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafb; padding: 20px;">
@@ -357,41 +386,35 @@ export function generateBookingStatusUpdateEmail({
           </p>
 
           <div style="background: #f8fafc; border-radius: 10px; padding: 18px; margin: 18px 0; border-left: 4px solid ${statusColor};">
-            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap: 10px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px;">
               <div>
                 <div style="color:#0f172a; font-weight:700; font-size:18px;">Order #${escapeHtml(
                   orderNumber
                 )}</div>
-
-                ${
-                  hasDetails
-                    ? `<div style="color:#475569; margin-top: 8px;">
-                        ${
+                <div style="color:#475569; margin-top: 6px;">
+                  ${
+                    serviceName
+                      ? `<div><strong>Service:</strong> ${escapeHtml(
                           serviceName
-                            ? `<div><strong>Service:</strong> ${escapeHtml(
-                                serviceName
-                              )}</div>`
-                            : ""
-                        }
-                        ${
+                        )}</div>`
+                      : ""
+                  }
+                  ${
+                    bookingDate
+                      ? `<div><strong>Date:</strong> ${escapeHtml(
                           bookingDate
-                            ? `<div><strong>Date:</strong> ${escapeHtml(
-                                bookingDate
-                              )}</div>`
-                            : ""
-                        }
-                        ${
+                        )}</div>`
+                      : ""
+                  }
+                  ${
+                    bookingTime
+                      ? `<div><strong>Time:</strong> ${escapeHtml(
                           bookingTime
-                            ? `<div><strong>Time:</strong> ${escapeHtml(
-                                bookingTime
-                              )}</div>`
-                            : ""
-                        }
-                      </div>`
-                    : ""
-                }
+                        )}</div>`
+                      : ""
+                  }
+                </div>
               </div>
-
               <div style="padding:10px 12px; border-radius:999px; background:${statusColor}; color:white; font-weight:700; white-space:nowrap;">
                 ${statusLabel}
               </div>
@@ -433,5 +456,6 @@ function escapeHtml(input: string) {
 }
 
 function escapeAttr(input: string) {
+  // for href/mailto params
   return escapeHtml(input).replaceAll("`", "&#096;");
 }
