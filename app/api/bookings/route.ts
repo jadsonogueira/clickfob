@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateUniqueOrderNumber } from "@/lib/order-utils";
 import { getFileUrl } from "@/lib/s3";
-import { sendEmail, generateCustomerConfirmationEmail, generateAdminNotificationEmail } from "@/lib/email";
+import {
+  sendEmail,
+  generateCustomerConfirmationEmail,
+  generateAdminNotificationEmail,
+} from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +22,12 @@ const timeSlotLabels: Record<string, string> = {
   "13-15": "1:00 PM - 3:00 PM",
   "15-17": "3:00 PM - 5:00 PM",
 };
+
+function isAbsoluteHttpUrl(value?: string | null) {
+  if (!value) return false;
+  const v = String(value).trim();
+  return v.startsWith("http://") || v.startsWith("https://");
+}
 
 export async function POST(request: Request) {
   try {
@@ -81,7 +91,7 @@ export async function POST(request: Request) {
     // Generate unique order number
     const orderNumber = await generateUniqueOrderNumber();
 
-    // Create booking
+    // Create booking (salva URL direto — Cloudinary)
     const booking = await prisma.booking.create({
       data: {
         orderNumber,
@@ -95,17 +105,29 @@ export async function POST(request: Request) {
         customerEmail,
         customerWhatsapp,
         additionalNotes: additionalNotes || null,
+
+        // ✅ Cloudinary URLs ficam aqui
         photoFrontUrl: photoFrontPath,
         photoBackUrl: photoBackPath,
+
+        // Mantemos por compatibilidade com legado do S3 (não atrapalha)
         photoFrontPublic: true,
         photoBackPublic: true,
+
         status: "pending",
       },
     });
 
-    // Get photo URLs for emails
-    const photoFrontUrl = await getFileUrl(photoFrontPath, true);
-    const photoBackUrl = await getFileUrl(photoBackPath, true);
+    // ✅ URLs para e-mail:
+    // - Se já for URL absoluta (Cloudinary), usa direto
+    // - Se for legado (path relativo), assina/monta via getFileUrl
+    const emailFrontUrl = isAbsoluteHttpUrl(photoFrontPath)
+      ? photoFrontPath
+      : await getFileUrl(photoFrontPath, true);
+
+    const emailBackUrl = isAbsoluteHttpUrl(photoBackPath)
+      ? photoBackPath
+      : await getFileUrl(photoBackPath, true);
 
     const formattedDate = new Date(bookingDate).toLocaleDateString("en-US", {
       weekday: "long",
@@ -115,7 +137,13 @@ export async function POST(request: Request) {
     });
 
     const timeLabel = timeSlotLabels[bookingTime] || bookingTime;
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+
+    // Base URL do site
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXTAUTH_URL ||
+      "http://localhost:3000";
+
     const manageUrl = `${baseUrl}/manage/${orderNumber}`;
 
     // Send customer confirmation email
@@ -129,7 +157,9 @@ export async function POST(request: Request) {
         bookingDate: formattedDate,
         bookingTime: timeLabel,
         customerName,
-        customerAddress: customerUnit ? `${customerAddress}, ${customerUnit}` : customerAddress,
+        customerAddress: customerUnit
+          ? `${customerAddress}, ${customerUnit}`
+          : customerAddress,
         manageUrl,
       }),
     });
@@ -150,8 +180,8 @@ export async function POST(request: Request) {
         customerEmail,
         customerWhatsapp,
         additionalNotes: additionalNotes || undefined,
-        photoFrontUrl,
-        photoBackUrl,
+        photoFrontUrl: emailFrontUrl,
+        photoBackUrl: emailBackUrl,
       }),
     });
 
