@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { generatePresignedUploadUrl } from "@/lib/s3";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
@@ -16,52 +17,52 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate presigned URLs for both files
     const frontResult = await generatePresignedUploadUrl(
       `fob-front-${frontFile.name}`,
       frontFile.type,
       true
     );
+
     const backResult = await generatePresignedUploadUrl(
       `fob-back-${backFile.name}`,
       backFile.type,
       true
     );
 
-    // Upload front file
+    // Upload front
     const frontBuffer = await frontFile.arrayBuffer();
-    const frontUploadHeaders: Record<string, string> = {
-      "Content-Type": frontFile.type,
-    };
-    if (frontResult.uploadUrl.includes("content-disposition")) {
-      frontUploadHeaders["Content-Disposition"] = "attachment";
-    }
     const frontUploadRes = await fetch(frontResult.uploadUrl, {
       method: "PUT",
-      body: Buffer.from(frontBuffer),
-      headers: frontUploadHeaders,
+      body: new Uint8Array(frontBuffer),
+      headers: {
+        "Content-Type": frontFile.type,
+        "Content-Disposition": "attachment",
+      },
     });
 
     if (!frontUploadRes.ok) {
-      throw new Error("Failed to upload front photo");
+      const text = await frontUploadRes.text().catch(() => "");
+      throw new Error(
+        `Failed to upload front photo (status ${frontUploadRes.status}) ${text}`
+      );
     }
 
-    // Upload back file
+    // Upload back
     const backBuffer = await backFile.arrayBuffer();
-    const backUploadHeaders: Record<string, string> = {
-      "Content-Type": backFile.type,
-    };
-    if (backResult.uploadUrl.includes("content-disposition")) {
-      backUploadHeaders["Content-Disposition"] = "attachment";
-    }
     const backUploadRes = await fetch(backResult.uploadUrl, {
       method: "PUT",
-      body: Buffer.from(backBuffer),
-      headers: backUploadHeaders,
+      body: new Uint8Array(backBuffer),
+      headers: {
+        "Content-Type": backFile.type,
+        "Content-Disposition": "attachment",
+      },
     });
 
     if (!backUploadRes.ok) {
-      throw new Error("Failed to upload back photo");
+      const text = await backUploadRes.text().catch(() => "");
+      throw new Error(
+        `Failed to upload back photo (status ${backUploadRes.status}) ${text}`
+      );
     }
 
     return NextResponse.json({
@@ -69,11 +70,15 @@ export async function POST(request: Request) {
       frontPath: frontResult.cloud_storage_path,
       backPath: backResult.cloud_storage_path,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Upload error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to upload files" },
-      { status: 500 }
-    );
+
+    // Em dev: devolve o motivo real
+    const message =
+      process.env.NODE_ENV !== "production"
+        ? error?.message || String(error)
+        : "Failed to upload files";
+
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
