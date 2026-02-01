@@ -29,10 +29,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Upload para o Cloudinary
-    // Pastas consistentes
-    const frontUrl = await uploadImage(frontFile, "clickfob/front");
-    const backUrl = await uploadImage(backFile, "clickfob/back");
+    // ✅ Upload paralelo
+    const [frontUrl, backUrl] = await Promise.all([
+      uploadImage(frontFile, "clickfob/front"),
+      uploadImage(backFile, "clickfob/back"),
+    ]);
 
     return NextResponse.json({
       success: true,
