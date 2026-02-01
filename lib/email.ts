@@ -1,76 +1,71 @@
 // lib/email.ts
-import nodemailer from "nodemailer";
+/* eslint-disable no-console */
 
 function getEnv(name: string, fallback = "") {
   return process.env[name] ?? fallback;
 }
 
-function parseBool(value: string, fallback: boolean) {
-  if (!value) return fallback;
-  return ["1", "true", "yes", "y", "on"].includes(value.toLowerCase());
-}
+/**
+ * RESEND
+ * Required env vars:
+ * - RESEND_API_KEY
+ * - RESEND_FROM  (ex: "ClickFob <clickfobtoronto@gmail.com>" ou domínio verificado no Resend)
+ *
+ * Optional:
+ * - EMAIL_FROM (se quiser manter o mesmo nome, mas recomendo usar RESEND_FROM)
+ */
+async function sendViaResend({
+  to,
+  subject,
+  htmlBody,
+}: {
+  to: string;
+  subject: string;
+  htmlBody: string;
+}): Promise<boolean> {
+  const apiKey = getEnv("RESEND_API_KEY");
+  const from = getEnv("RESEND_FROM") || getEnv("EMAIL_FROM");
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-function getTransport() {
-  const host = getEnv("SMTP_HOST");
-  const port = Number(getEnv("SMTP_PORT", "587"));
-  const user = getEnv("SMTP_USER");
-  const pass = getEnv("SMTP_PASS");
-  const secure = parseBool(getEnv("SMTP_SECURE", "false"), false);
-
-  if (!host || !port || !user || !pass) {
-    throw new Error(
-      "Missing SMTP env vars. Required: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS."
-    );
+  if (!apiKey) {
+    throw new Error("Missing RESEND_API_KEY env var.");
+  }
+  if (!from) {
+    throw new Error("Missing RESEND_FROM env var (or EMAIL_FROM).");
   }
 
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure, // true for 465, false for 587 (STARTTLS)
-    auth: { user, pass },
+  // Resend expects `to` as array
+  const payload = {
+    from,
+    to: [to],
+    subject,
+    html: htmlBody,
+  };
 
-    // ✅ Evita ficar “preso” 2min no connect
-    connectionTimeout: 12_000,
-    greetingTimeout: 12_000,
-    socketTimeout: 20_000,
-
-    // ✅ Gmail costuma precisar STARTTLS
-    requireTLS: !secure && port === 587,
-
-    // ✅ Pool ajuda a reaproveitar conexão no Render (processo fica vivo)
-    pool: true,
-    maxConnections: 1,
-    maxMessages: 100,
-
-    // TLS mais “compatível”
-    tls: {
-      servername: host,
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
     },
+    body: JSON.stringify(payload),
   });
-}
 
-async function sendWithRetry(sendFn: () => Promise<any>) {
-  // 2 tentativas: 0ms + 1200ms (simples e eficaz)
-  const delays = [0, 1200];
-  let lastErr: any;
-
-  for (let i = 0; i < delays.length; i++) {
-    if (delays[i] > 0) await sleep(delays[i]);
+  if (!res.ok) {
+    let details: any = null;
     try {
-      return await sendFn();
-    } catch (err: any) {
-      lastErr = err;
-      // não faz retry em erro de auth
-      const code = String(err?.code || "");
-      if (code === "EAUTH") break;
+      details = await res.json();
+    } catch {
+      // ignore
     }
+    console.error("Email send error (Resend):", {
+      status: res.status,
+      statusText: res.statusText,
+      details,
+    });
+    return false;
   }
 
-  throw lastErr;
+  return true;
 }
 
 export async function sendEmail({
@@ -83,26 +78,10 @@ export async function sendEmail({
   htmlBody: string;
 }): Promise<boolean> {
   try {
-    const from = getEnv("EMAIL_FROM") || `ClickFob <${getEnv("SMTP_USER")}>`;
-    const transport = getTransport();
-
-    const info = await sendWithRetry(() =>
-      transport.sendMail({
-        from,
-        to,
-        subject,
-        html: htmlBody,
-      })
-    );
-
-    return !!info?.messageId;
+    return await sendViaResend({ to, subject, htmlBody });
   } catch (error: any) {
-    // ✅ log mais útil (mantém o seu padrão)
     console.error("Email send error:", {
-      message: error?.message,
-      code: error?.code,
-      command: error?.command,
-      response: error?.response,
+      message: error?.message || String(error),
     });
     return false;
   }
@@ -381,6 +360,10 @@ export function generateChangeRequestEmail({
   `;
 }
 
+/**
+ * Usada pelo: app/api/admin/booking-action/route.ts
+ * (serviceName/bookingDate/bookingTime são opcionais para não quebrar build se algum caller não mandar)
+ */
 export function generateBookingStatusUpdateEmail({
   orderNumber,
   customerName,
