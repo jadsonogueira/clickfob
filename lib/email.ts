@@ -51,7 +51,6 @@ export async function sendEmail({
       html: htmlBody,
     });
 
-    // Nodemailer returns messageId even when accepted
     return !!info?.messageId;
   } catch (error) {
     console.error("Email send error:", error);
@@ -152,7 +151,6 @@ export function generateAdminNotificationEmail({
   additionalNotes,
   photoFrontUrl,
   photoBackUrl,
-  // opcional: se você quiser já inserir botões de ação aqui depois
   adminActionHtml,
 }: {
   orderNumber: string;
@@ -310,25 +308,25 @@ export function generateChangeRequestEmail({
 }
 
 /**
- * ✅ ESTA É A FUNÇÃO QUE ESTÁ FALTANDO NO SEU BUILD
- * Usada pelo: app/api/admin/booking-action/route.ts
+ * ✅ Ajustado: serviceName/bookingDate/bookingTime agora são opcionais
+ * Assim seu route.ts atual compila sem precisar mudar.
  */
 export function generateBookingStatusUpdateEmail({
   orderNumber,
   customerName,
   status,
+  manageUrl,
   serviceName,
   bookingDate,
   bookingTime,
-  manageUrl,
 }: {
   orderNumber: string;
   customerName: string;
   status: "pending" | "confirmed" | "cancelled";
-  serviceName: string;
-  bookingDate: string;
-  bookingTime: string;
   manageUrl: string;
+  serviceName?: string;
+  bookingDate?: string;
+  bookingTime?: string;
 }): string {
   const statusLabel =
     status === "confirmed"
@@ -339,6 +337,8 @@ export function generateBookingStatusUpdateEmail({
 
   const statusColor =
     status === "confirmed" ? "#16a34a" : status === "cancelled" ? "#dc2626" : "#f59e0b";
+
+  const hasDetails = !!serviceName || !!bookingDate || !!bookingTime;
 
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafb; padding: 20px;">
@@ -357,17 +357,41 @@ export function generateBookingStatusUpdateEmail({
           </p>
 
           <div style="background: #f8fafc; border-radius: 10px; padding: 18px; margin: 18px 0; border-left: 4px solid ${statusColor};">
-            <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px;">
+            <div style="display:flex; align-items:flex-start; justify-content:space-between; gap: 10px;">
               <div>
                 <div style="color:#0f172a; font-weight:700; font-size:18px;">Order #${escapeHtml(
                   orderNumber
                 )}</div>
-                <div style="color:#475569; margin-top: 6px;">
-                  <div><strong>Service:</strong> ${escapeHtml(serviceName)}</div>
-                  <div><strong>Date:</strong> ${escapeHtml(bookingDate)}</div>
-                  <div><strong>Time:</strong> ${escapeHtml(bookingTime)}</div>
-                </div>
+
+                ${
+                  hasDetails
+                    ? `<div style="color:#475569; margin-top: 8px;">
+                        ${
+                          serviceName
+                            ? `<div><strong>Service:</strong> ${escapeHtml(
+                                serviceName
+                              )}</div>`
+                            : ""
+                        }
+                        ${
+                          bookingDate
+                            ? `<div><strong>Date:</strong> ${escapeHtml(
+                                bookingDate
+                              )}</div>`
+                            : ""
+                        }
+                        ${
+                          bookingTime
+                            ? `<div><strong>Time:</strong> ${escapeHtml(
+                                bookingTime
+                              )}</div>`
+                            : ""
+                        }
+                      </div>`
+                    : ""
+                }
               </div>
+
               <div style="padding:10px 12px; border-radius:999px; background:${statusColor}; color:white; font-weight:700; white-space:nowrap;">
                 ${statusLabel}
               </div>
@@ -409,6 +433,5 @@ function escapeHtml(input: string) {
 }
 
 function escapeAttr(input: string) {
-  // for href/mailto params
   return escapeHtml(input).replaceAll("`", "&#096;");
 }
