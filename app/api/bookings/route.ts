@@ -23,7 +23,7 @@ const timeSlotLabels: Record<string, string> = {
 };
 
 function getAppBaseUrl() {
-  // ✅ Coloque isso no Render: NEXT_PUBLIC_APP_URL=https://clickfob.onrender.com
+  // ✅ Render: NEXT_PUBLIC_APP_URL=https://clickfob.onrender.com
   const a = process.env.NEXT_PUBLIC_APP_URL;
   const b = process.env.NEXTAUTH_URL;
   return (a || b || "http://localhost:3000").replace(/\/$/, "");
@@ -32,6 +32,7 @@ function getAppBaseUrl() {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
+
     const {
       serviceId,
       bookingDate,
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
       photoBackPath,
     } = data ?? {};
 
+    // Validate required fields
     if (
       !serviceId ||
       !bookingDate ||
@@ -71,6 +73,7 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check if slot is already booked
     const existingBooking = await prisma.booking.findFirst({
       where: {
         bookingDate: new Date(bookingDate),
@@ -86,8 +89,10 @@ export async function POST(request: Request) {
       );
     }
 
+    // Generate unique order number
     const orderNumber = await generateUniqueOrderNumber();
 
+    // Create booking
     const booking = await prisma.booking.create({
       data: {
         orderNumber,
@@ -102,11 +107,11 @@ export async function POST(request: Request) {
         customerWhatsapp,
         additionalNotes: additionalNotes || null,
 
-        // ✅ Agora salvamos URL final do Cloudinary:
+        // ✅ Cloudinary URLs
         photoFrontUrl: photoFrontPath,
         photoBackUrl: photoBackPath,
 
-        // se esses campos existirem no schema, mantém
+        // mantém se existir no schema
         photoFrontPublic: true,
         photoBackPublic: true,
 
@@ -126,11 +131,12 @@ export async function POST(request: Request) {
     const baseUrl = getAppBaseUrl();
     const manageUrl = `${baseUrl}/manage/${orderNumber}`;
 
-    // ✅ fotos já são URL (Cloudinary) — manda direto pro email
+    // ✅ fotos já são URL (Cloudinary)
     const photoFrontUrl = photoFrontPath;
     const photoBackUrl = photoBackPath;
 
-    await sendEmail({
+    // --- Send customer email
+    const customerEmailOk = await sendEmail({
       to: customerEmail,
       subject: `ClickFob Booking Confirmation - Order #${orderNumber}`,
       htmlBody: generateCustomerConfirmationEmail({
@@ -147,29 +153,59 @@ export async function POST(request: Request) {
       }),
     });
 
-    const adminEmail =
-  process.env.ADMIN_EMAIL || "clickfobtoronto@gmail.com";
+    if (!customerEmailOk) {
+      console.error("Failed to send CUSTOMER email", {
+        orderNumber,
+        to: customerEmail,
+      });
+      // não vou falhar o booking por isso, mas loga forte
+    }
 
-await sendEmail({
-  to: adminEmail,
-  subject: `New Booking Request - Order #${orderNumber}`,
-  htmlBody: generateAdminNotificationEmail({
-    orderNumber,
-    serviceName: service.name,
-    servicePrice: service.price,
-    bookingDate: formattedDate,
-    bookingTime: timeLabel,
-    customerName,
-    customerAddress,
-    customerUnit: customerUnit || undefined,
-    customerEmail,
-    customerWhatsapp,
-    additionalNotes: additionalNotes || undefined,
-    photoFrontUrl,
-    photoBackUrl,
-  }),
-});
+    // --- Send admin email
+    const adminEmail = process.env.ADMIN_EMAIL || "clickfobtoronto@gmail.com";
 
+    const adminEmailOk = await sendEmail({
+      to: adminEmail,
+      subject: `New Booking Request - Order #${orderNumber}`,
+      htmlBody: generateAdminNotificationEmail({
+        orderNumber,
+        serviceName: service.name,
+        servicePrice: service.price,
+        bookingDate: formattedDate,
+        bookingTime: timeLabel,
+        customerName,
+        customerAddress,
+        customerUnit: customerUnit || undefined,
+        customerEmail,
+        customerWhatsapp,
+        additionalNotes: additionalNotes || undefined,
+        photoFrontUrl,
+        photoBackUrl,
+
+        // ✅ só use se você adicionou esse campo na função do email
+        // adminManageUrl: `${baseUrl}/admin/bookings?key=${process.env.ADMIN_DASHBOARD_KEY || ""}`,
+      } as any),
+    });
+
+    if (!adminEmailOk) {
+      console.error("Failed to send ADMIN email", {
+        orderNumber,
+        to: adminEmail,
+      });
+
+      // ✅ aqui eu recomendo retornar erro, porque admin precisa receber.
+      // (o booking já foi criado; mas você fica sabendo que falhou)
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Booking created, but failed to notify admin. Please contact support.",
+          orderNumber,
+          bookingId: booking.id,
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
