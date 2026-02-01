@@ -1,38 +1,36 @@
+// lib/email.ts
 import nodemailer from "nodemailer";
 
-/* --------------------------------------------------
- * Transporter
- * -------------------------------------------------- */
-function createTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+function getEnv(name: string, fallback = "") {
+  return process.env[name] ?? fallback;
+}
 
-  if (!host || !user || !pass) {
-    throw new Error("SMTP configuration is incomplete");
+function parseBool(value: string, fallback: boolean) {
+  if (!value) return fallback;
+  return ["1", "true", "yes", "y", "on"].includes(value.toLowerCase());
+}
+
+function getTransport() {
+  const host = getEnv("SMTP_HOST");
+  const port = Number(getEnv("SMTP_PORT", "587"));
+  const user = getEnv("SMTP_USER");
+  const pass = getEnv("SMTP_PASS");
+  const secure = parseBool(getEnv("SMTP_SECURE", "false"), false);
+
+  if (!host || !port || !user || !pass) {
+    throw new Error(
+      "Missing SMTP env vars. Required: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS."
+    );
   }
-
-  const secure =
-    process.env.SMTP_SECURE === "true" || port === 465;
 
   return nodemailer.createTransport({
     host,
     port,
-    secure,
-    auth: {
-      user,
-      pass,
-    },
-    connectionTimeout: 10_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 15_000,
+    secure, // true for 465, false for 587 (STARTTLS)
+    auth: { user, pass },
   });
 }
 
-/* --------------------------------------------------
- * Send Email
- * -------------------------------------------------- */
 export async function sendEmail({
   to,
   subject,
@@ -43,29 +41,28 @@ export async function sendEmail({
   htmlBody: string;
 }): Promise<boolean> {
   try {
-    const transporter = createTransporter();
+    const from = getEnv("EMAIL_FROM") || `ClickFob <${getEnv("SMTP_USER")}>`;
+    const transport = getTransport();
 
-    const from =
-      process.env.EMAIL_FROM ||
-      `ClickFob <${process.env.SMTP_USER}>`;
-
-    await transporter.sendMail({
+    const info = await transport.sendMail({
       from,
       to,
       subject,
       html: htmlBody,
     });
 
-    return true;
+    // Nodemailer returns messageId even when accepted
+    return !!info?.messageId;
   } catch (error) {
     console.error("Email send error:", error);
     return false;
   }
 }
 
-/* --------------------------------------------------
- * Customer Confirmation Email
- * -------------------------------------------------- */
+/* -----------------------------
+   EMAIL TEMPLATES
+------------------------------ */
+
 export function generateCustomerConfirmationEmail({
   orderNumber,
   serviceName,
@@ -86,36 +83,61 @@ export function generateCustomerConfirmationEmail({
   manageUrl: string;
 }): string {
   return `
-    <div style="font-family: Arial, sans-serif; max-width:600px; margin:0 auto;">
-      <h2>ClickFob – Booking Confirmation</h2>
-      <p>Hi ${customerName},</p>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafb; padding: 20px;">
+      <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 30px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 28px;">ClickFob</h1>
+          <p style="color: #bfdbfe; margin: 10px 0 0 0;">Booking Confirmation</p>
+        </div>
 
-      <p>Your booking was received and is pending confirmation.</p>
+        <div style="padding: 30px;">
+          <p style="font-size: 18px; color: #374151;">Hi ${escapeHtml(
+            customerName
+          )},</p>
+          <p style="color: #6b7280;">Thank you for your booking! Here are your details:</p>
 
-      <p><strong>Order:</strong> ${orderNumber}</p>
-      <p><strong>Service:</strong> ${serviceName}</p>
-      <p><strong>Date:</strong> ${bookingDate}</p>
-      <p><strong>Time:</strong> ${bookingTime}</p>
-      <p><strong>Address:</strong> ${customerAddress}</p>
-      <p><strong>Total:</strong> $${servicePrice.toFixed(2)}</p>
+          <div style="background: #eff6ff; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+            <h2 style="margin: 0 0 15px 0; color: #1e40af; font-size: 20px;">Order #${escapeHtml(
+              orderNumber
+            )}</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px 0; color: #6b7280;">Service:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
+                serviceName
+              )}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">Date:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
+                bookingDate
+              )}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">Time:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
+                bookingTime
+              )}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">Address:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
+                customerAddress
+              )}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280; font-weight: 700;">Total:</td><td style="padding: 8px 0; color: #1e40af; font-weight: 700; font-size: 18px;">$${servicePrice.toFixed(
+                2
+              )}</td></tr>
+            </table>
+          </div>
 
-      <p style="margin-top:20px;">
-        <a href="${manageUrl}" 
-           style="background:#2563eb;color:#fff;padding:12px 20px;
-                  text-decoration:none;border-radius:6px;">
-          Manage Booking
-        </a>
-      </p>
+          <div style="background: #fef3c7; border-radius: 8px; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0; color: #92400e; font-size: 14px;">⏳ Your booking is pending confirmation. We'll contact you shortly to confirm.</p>
+          </div>
 
-      <p>If you need help, contact us on WhatsApp.</p>
-      <p>ClickFob – GTA</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${manageUrl}" style="display: inline-block; background: #3b82f6; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 5px;">Manage Booking</a>
+            <a href="https://wa.me/14167707036" style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 5px;">Contact Us on WhatsApp</a>
+          </div>
+        </div>
+
+        <div style="background: #f3f4f6; padding: 20px; text-align: center;">
+          <p style="margin: 0; color: #6b7280; font-size: 14px;">ClickFob - On-site Fob Copying & Garage Remote Service</p>
+          <p style="margin: 5px 0 0 0; color: #9ca3af; font-size: 12px;">Serving all GTA</p>
+        </div>
+      </div>
     </div>
   `;
 }
 
-/* --------------------------------------------------
- * Admin Notification Email
- * -------------------------------------------------- */
 export function generateAdminNotificationEmail({
   orderNumber,
   serviceName,
@@ -130,6 +152,8 @@ export function generateAdminNotificationEmail({
   additionalNotes,
   photoFrontUrl,
   photoBackUrl,
+  // opcional: se você quiser já inserir botões de ação aqui depois
+  adminActionHtml,
 }: {
   orderNumber: string;
   serviceName: string;
@@ -144,42 +168,93 @@ export function generateAdminNotificationEmail({
   additionalNotes?: string;
   photoFrontUrl: string;
   photoBackUrl: string;
+  adminActionHtml?: string;
 }): string {
   return `
-    <div style="font-family: Arial, sans-serif; max-width:600px; margin:0 auto;">
-      <h2>🚨 New Booking Request</h2>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafb; padding: 20px;">
+      <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="background: #dc2626; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">🔔 New Booking Request</h1>
+        </div>
 
-      <p><strong>Order:</strong> ${orderNumber}</p>
-      <p><strong>Service:</strong> ${serviceName}</p>
-      <p><strong>Price:</strong> $${servicePrice.toFixed(2)}</p>
-      <p><strong>Date:</strong> ${bookingDate}</p>
-      <p><strong>Time:</strong> ${bookingTime}</p>
+        <div style="padding: 30px;">
+          <div style="background: #fef2f2; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #dc2626;">
+            <h2 style="margin: 0; color: #dc2626; font-size: 22px;">Order #${escapeHtml(
+              orderNumber
+            )}</h2>
+          </div>
 
-      <hr />
+          <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Service Details</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr><td style="padding: 8px 0; color: #6b7280;">Service:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
+              serviceName
+            )}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Price:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">$${servicePrice.toFixed(
+              2
+            )}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Date:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
+              bookingDate
+            )}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Time:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
+              bookingTime
+            )}</td></tr>
+          </table>
 
-      <p><strong>Customer:</strong> ${customerName}</p>
-      <p><strong>Address:</strong> ${customerAddress}</p>
-      ${customerUnit ? `<p><strong>Unit:</strong> ${customerUnit}</p>` : ""}
-      <p><strong>Email:</strong> ${customerEmail}</p>
-      <p><strong>WhatsApp:</strong> ${customerWhatsapp}</p>
+          <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Customer Information</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr><td style="padding: 8px 0; color: #6b7280;">Name:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
+              customerName
+            )}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Address:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
+              customerAddress
+            )}</td></tr>
+            ${
+              customerUnit
+                ? `<tr><td style="padding: 8px 0; color: #6b7280;">Unit/Buzzer:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
+                    customerUnit
+                  )}</td></tr>`
+                : ""
+            }
+            <tr><td style="padding: 8px 0; color: #6b7280;">Email:</td><td style="padding: 8px 0; color: #374151;"><a href="mailto:${escapeAttr(
+              customerEmail
+            )}">${escapeHtml(customerEmail)}</a></td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">WhatsApp:</td><td style="padding: 8px 0; color: #374151;"><a href="https://wa.me/${escapeAttr(
+              customerWhatsapp.replace(/[^0-9]/g, "")
+            )}">${escapeHtml(customerWhatsapp)}</a></td></tr>
+          </table>
 
-      ${
-        additionalNotes
-          ? `<p><strong>Notes:</strong><br/>${additionalNotes}</p>`
-          : ""
-      }
+          ${
+            additionalNotes
+              ? `
+            <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Additional Notes</h3>
+            <p style="background: #f3f4f6; padding: 15px; border-radius: 8px; color: #374151;">${escapeHtml(
+              additionalNotes
+            )}</p>
+          `
+              : ""
+          }
 
-      <p>
-        <a href="${photoFrontUrl}">View Front Photo</a><br/>
-        <a href="${photoBackUrl}">View Back Photo</a>
-      </p>
+          <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Uploaded Photos</h3>
+          <div style="display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap;">
+            <a href="${photoFrontUrl}" style="display: inline-block; background: #3b82f6; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600;">View Front Photo</a>
+            <a href="${photoBackUrl}" style="display: inline-block; background: #3b82f6; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600;">View Back Photo</a>
+          </div>
+
+          ${
+            adminActionHtml
+              ? `<div style="margin-top: 20px;">${adminActionHtml}</div>`
+              : ""
+          }
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://wa.me/${customerWhatsapp.replace(/[^0-9]/g, "")}" style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Contact Customer on WhatsApp</a>
+          </div>
+        </div>
+      </div>
     </div>
   `;
 }
 
-/* --------------------------------------------------
- * Change Request Email
- * -------------------------------------------------- */
 export function generateChangeRequestEmail({
   orderNumber,
   customerName,
@@ -194,20 +269,146 @@ export function generateChangeRequestEmail({
   requestedChanges: string;
 }): string {
   return `
-    <div style="font-family: Arial, sans-serif; max-width:600px; margin:0 auto;">
-      <h2>📝 Change Request</h2>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafb; padding: 20px;">
+      <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="background: #f59e0b; padding: 20px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">📝 Change Request</h1>
+        </div>
 
-      <p><strong>Order:</strong> ${orderNumber}</p>
-      <p><strong>Name:</strong> ${customerName}</p>
-      <p><strong>Email:</strong> ${customerEmail}</p>
-      <p><strong>WhatsApp:</strong> ${customerWhatsapp}</p>
+        <div style="padding: 30px;">
+          <div style="background: #fef3c7; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #f59e0b;">
+            <h2 style="margin: 0; color: #92400e; font-size: 22px;">Order #${escapeHtml(
+              orderNumber
+            )}</h2>
+          </div>
 
-      <hr />
+          <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Customer</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr><td style="padding: 8px 0; color: #6b7280;">Name:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
+              customerName
+            )}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">Email:</td><td style="padding: 8px 0; color: #374151;"><a href="mailto:${escapeAttr(
+              customerEmail
+            )}">${escapeHtml(customerEmail)}</a></td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">WhatsApp:</td><td style="padding: 8px 0; color: #374151;"><a href="https://wa.me/${escapeAttr(
+              customerWhatsapp.replace(/[^0-9]/g, "")
+            )}">${escapeHtml(customerWhatsapp)}</a></td></tr>
+          </table>
 
-      <p><strong>Requested changes:</strong></p>
-      <pre style="background:#f3f4f6;padding:12px;border-radius:6px;">
-${requestedChanges}
-      </pre>
+          <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Requested Changes</h3>
+          <div style="background: #f3f4f6; padding: 15px; border-radius: 8px; color: #374151; white-space: pre-wrap;">${escapeHtml(
+            requestedChanges
+          )}</div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://wa.me/${customerWhatsapp.replace(/[^0-9]/g, "")}" style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Contact Customer on WhatsApp</a>
+          </div>
+        </div>
+      </div>
     </div>
   `;
+}
+
+/**
+ * ✅ ESTA É A FUNÇÃO QUE ESTÁ FALTANDO NO SEU BUILD
+ * Usada pelo: app/api/admin/booking-action/route.ts
+ */
+export function generateBookingStatusUpdateEmail({
+  orderNumber,
+  customerName,
+  status,
+  serviceName,
+  bookingDate,
+  bookingTime,
+  manageUrl,
+}: {
+  orderNumber: string;
+  customerName: string;
+  status: "pending" | "confirmed" | "cancelled";
+  serviceName: string;
+  bookingDate: string;
+  bookingTime: string;
+  manageUrl: string;
+}): string {
+  const statusLabel =
+    status === "confirmed"
+      ? "Confirmed ✅"
+      : status === "cancelled"
+      ? "Cancelled ❌"
+      : "Pending ⏳";
+
+  const statusColor =
+    status === "confirmed" ? "#16a34a" : status === "cancelled" ? "#dc2626" : "#f59e0b";
+
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafb; padding: 20px;">
+      <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #334155 100%); padding: 24px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">ClickFob</h1>
+          <p style="color: #cbd5e1; margin: 8px 0 0 0;">Booking Status Update</p>
+        </div>
+
+        <div style="padding: 28px;">
+          <p style="font-size: 16px; color: #374151;">Hi ${escapeHtml(
+            customerName
+          )},</p>
+          <p style="color: #6b7280; margin-top: 6px;">
+            Your booking status has been updated.
+          </p>
+
+          <div style="background: #f8fafc; border-radius: 10px; padding: 18px; margin: 18px 0; border-left: 4px solid ${statusColor};">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px;">
+              <div>
+                <div style="color:#0f172a; font-weight:700; font-size:18px;">Order #${escapeHtml(
+                  orderNumber
+                )}</div>
+                <div style="color:#475569; margin-top: 6px;">
+                  <div><strong>Service:</strong> ${escapeHtml(serviceName)}</div>
+                  <div><strong>Date:</strong> ${escapeHtml(bookingDate)}</div>
+                  <div><strong>Time:</strong> ${escapeHtml(bookingTime)}</div>
+                </div>
+              </div>
+              <div style="padding:10px 12px; border-radius:999px; background:${statusColor}; color:white; font-weight:700; white-space:nowrap;">
+                ${statusLabel}
+              </div>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin: 22px 0 6px;">
+            <a href="${manageUrl}" style="display: inline-block; background: #3b82f6; color: white; padding: 12px 22px; border-radius: 10px; text-decoration: none; font-weight: 700;">
+              View Booking
+            </a>
+          </div>
+
+          <div style="text-align:center; margin-top: 10px;">
+            <a href="https://wa.me/14167707036" style="color:#16a34a; text-decoration:none; font-weight:700;">
+              Contact us on WhatsApp
+            </a>
+          </div>
+        </div>
+
+        <div style="background: #f3f4f6; padding: 16px; text-align: center;">
+          <p style="margin: 0; color: #6b7280; font-size: 12px;">You are receiving this message from clickfob.onrender.com</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* -----------------------------
+   small safety helpers
+------------------------------ */
+
+function escapeHtml(input: string) {
+  return String(input ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function escapeAttr(input: string) {
+  // for href/mailto params
+  return escapeHtml(input).replaceAll("`", "&#096;");
 }
