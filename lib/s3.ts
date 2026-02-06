@@ -1,8 +1,19 @@
-import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand } from "@aws-sdk/client-s3";
+import {
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createS3Client, getBucketConfig } from "./aws-config";
 
 const s3Client = createS3Client();
+
+function isAbsoluteUrl(value: string) {
+  return /^https?:\/\//i.test(value);
+}
 
 export async function generatePresignedUploadUrl(
   fileName: string,
@@ -10,7 +21,7 @@ export async function generatePresignedUploadUrl(
   isPublic: boolean = false
 ): Promise<{ uploadUrl: string; cloud_storage_path: string }> {
   const { bucketName, folderPrefix } = getBucketConfig();
-  
+
   const cloud_storage_path = isPublic
     ? `${folderPrefix}public/uploads/${Date.now()}-${fileName}`
     : `${folderPrefix}uploads/${Date.now()}-${fileName}`;
@@ -31,6 +42,11 @@ export async function getFileUrl(
   cloud_storage_path: string,
   isPublic: boolean = false
 ): Promise<string> {
+  // ✅ Se já for URL (Cloudinary, etc), não mexe.
+  if (cloud_storage_path && isAbsoluteUrl(cloud_storage_path)) {
+    return cloud_storage_path;
+  }
+
   const { bucketName } = getBucketConfig();
   const region = process.env.AWS_REGION || "us-east-1";
 
@@ -48,6 +64,10 @@ export async function getFileUrl(
 }
 
 export async function deleteFile(cloud_storage_path: string): Promise<void> {
+  // ✅ Se for URL (Cloudinary), não tem como deletar via S3 aqui.
+  // Se quiser deletar Cloudinary, criamos um delete específico depois.
+  if (cloud_storage_path && isAbsoluteUrl(cloud_storage_path)) return;
+
   const { bucketName } = getBucketConfig();
 
   const command = new DeleteObjectCommand({
@@ -63,7 +83,7 @@ export async function initiateMultipartUpload(
   isPublic: boolean = false
 ): Promise<{ uploadId: string; cloud_storage_path: string }> {
   const { bucketName, folderPrefix } = getBucketConfig();
-  
+
   const cloud_storage_path = isPublic
     ? `${folderPrefix}public/uploads/${Date.now()}-${fileName}`
     : `${folderPrefix}uploads/${Date.now()}-${fileName}`;

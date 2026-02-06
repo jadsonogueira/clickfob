@@ -1,0 +1,183 @@
+warning: in the working copy of 'app/api/bookings/[orderNumber]/change-request/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/bookings/[orderNumber]/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/bookings/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/upload/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/manage/[orderNumber]/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'components/booking-flow.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'components/manage-booking-detail.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/aws-config.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/email.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/s3.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'prisma/schema.prisma', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/app/api/bookings/[orderNumber]/change-request/route.ts b/app/api/bookings/[orderNumber]/change-request/route.ts[m
+[1mindex 00214a0..0506ac1 100644[m
+[1m--- a/app/api/bookings/[orderNumber]/change-request/route.ts[m
+[1m+++ b/app/api/bookings/[orderNumber]/change-request/route.ts[m
+[36m@@ -3,6 +3,11 @@[m [mimport { prisma } from "@/lib/db";[m
+ import { sendEmail, generateChangeRequestEmail } from "@/lib/email";[m
+ [m
+ export const dynamic = "force-dynamic";[m
+[32m+[m[32mexport const runtime = "nodejs";[m
+[32m+[m
+[32m+[m[32mfunction getAdminEmail() {[m
+[32m+[m[32m  return process.env.ADMIN_EMAIL || "clickfobtoronto@gmail.com";[m
+[32m+[m[32m}[m
+ [m
+ export async function POST([m
+   request: Request,[m
+[36m@@ -10,7 +15,8 @@[m [mexport async function POST([m
+ ) {[m
+   try {[m
+     const orderNumber = params?.orderNumber?.toUpperCase();[m
+[31m-    const { requestedChanges } = await request.json();[m
+[32m+[m[32m    const body = await request.json().catch(() => null);[m
+[32m+[m[32m    const requestedChanges = body?.requestedChanges;[m
+ [m
+     if (!orderNumber) {[m
+       return NextResponse.json([m
+[36m@@ -28,6 +34,12 @@[m [mexport async function POST([m
+ [m
+     const booking = await prisma.booking.findUnique({[m
+       where: { orderNumber },[m
+[32m+[m[32m      select: {[m
+[32m+[m[32m        orderNumber: true,[m
+[32m+[m[32m        customerName: true,[m
+[32m+[m[32m        customerEmail: true,[m
+[32m+[m[32m        customerWhatsapp: true,[m
+[32m+[m[32m      },[m
+     });[m
+ [m
+     if (!booking) {[m
+[36m@@ -37,9 +49,11 @@[m [mexport async function POST([m
+       );[m
+     }[m
+ [m
+[31m-    // Send change request email to admin[m
+[31m-    await sendEmail({[m
+[31m-      to: "clickfob@gmail.com",[m
+[32m+[m[32m    const adminEmail = getAdminEmail();[m
+[32m+[m
+[32m+[m[32m    // ✅ Envia email para o admin correto[m
+[32m+[m[32m    const ok = await sendEmail({[m
+[32m+[m[32m      to: adminEmail,[m
+       subject: `Change Request - Order #${orderNumber}`,[m
+       htmlBody: generateChangeRequestEmail({[m
+         orderNumber,[m
+[36m@@ -50,12 +64,20 @@[m [mexport async function POST([m
+       }),[m
+     });[m
+ [m
+[32m+[m[32m    // Se quiser exigir sucesso do email, mantenha assim:[m
+[32m+[m[32m    if (!ok) {[m
+[32m+[m[32m      return NextResponse.json([m
+[32m+[m[32m        { success: false, error: "Failed to send change request email" },[m
+[32m+[m[32m        { status: 500 }[m
+[32m+[m[32m      );[m
+[32m+[m[32m    }[m
+[32m+[m
+     return NextResponse.json({[m
+       success: true,[m
+       message: "Change request submitted successfully",[m
+     });[m
+[31m-  } catch (error) {[m
+[31m-    console.error("Change request error:", error);[m
+[32m+[m[32m  } catch (error: any) {[m
+[32m+[m[32m    console.error("Change request error:", error?.message || error);[m
+     return NextResponse.json([m
+       { success: false, error: "Failed to submit change request" },[m
+       { status: 500 }[m
+[1mdiff --git a/app/api/bookings/[orderNumber]/route.ts b/app/api/bookings/[orderNumber]/route.ts[m
+[1mindex 0ff4d66..a80e939 100644[m
+[1m--- a/app/api/bookings/[orderNumber]/route.ts[m
+[1m+++ b/app/api/bookings/[orderNumber]/route.ts[m
+[36m@@ -1,6 +1,5 @@[m
+ import { NextResponse } from "next/server";[m
+ import { prisma } from "@/lib/db";[m
+[31m-import { getFileUrl } from "@/lib/s3";[m
+ [m
+ export const dynamic = "force-dynamic";[m
+ [m
+[36m@@ -29,10 +28,7 @@[m [mexport async function GET([m
+       );[m
+     }[m
+ [m
+[31m-    // Get photo URLs[m
+[31m-    const photoFrontUrl = await getFileUrl(booking.photoFrontUrl, booking.photoFrontPublic);[m
+[31m-    const photoBackUrl = await getFileUrl(booking.photoBackUrl, booking.photoBackPublic);[m
+[31m-[m
+[32m+[m[32m    // ✅ Agora são URLs diretas (Cloudinary), então devolve direto:[m
+     return NextResponse.json({[m
+       success: true,[m
+       booking: {[m
+[36m@@ -46,8 +42,8 @@[m [mexport async function GET([m
+         customerUnit: booking.customerUnit,[m
+         customerEmail: booking.customerEmail,[m
+         status: booking.status,[m
+[31m-        photoFrontUrl,[m
+[31m-        photoBackUrl,[m
+[32m+[m[32m        photoFrontUrl: booking.photoFrontUrl,[m
+[32m+[m[32m        photoBackUrl: booking.photoBackUrl,[m
+         createdAt: booking.createdAt,[m
+       },[m
+     });[m
+[1mdiff --git a/app/api/bookings/route.ts b/app/api/bookings/route.ts[m
+[1mindex c36a529..3327d40 100644[m
+[1m--- a/app/api/bookings/route.ts[m
+[1m+++ b/app/api/bookings/route.ts[m
+[36m@@ -1,8 +1,12 @@[m
+ import { NextResponse } from "next/server";[m
+ import { prisma } from "@/lib/db";[m
+ import { generateUniqueOrderNumber } from "@/lib/order-utils";[m
+[31m-import { getFileUrl } from "@/lib/s3";[m
+[31m-import { sendEmail, generateCustomerConfirmationEmail, generateAdminNotificationEmail } from "@/lib/email";[m
+[32m+[m[32mimport { createAdminActionToken } from "@/lib/admin-actions";[m
+[32m+[m[32mimport {[m
+[32m+[m[32m  sendEmail,[m
+[32m+[m[32m  generateCustomerConfirmationEmail,[m
+[32m+[m[32m  generateAdminNotificationEmail,[m
+[32m+[m[32m} from "@/lib/email";[m
+ [m
+ export const dynamic = "force-dynamic";[m
+ [m
+[36m@@ -19,6 +23,12 @@[m [mconst timeSlotLabels: Record<string, string> = {[m
+   "15-17": "3:00 PM - 5:00 PM",[m
+ };[m
+ [m
+[32m+[m[32mfunction getAppBaseUrl() {[m
+[32m+[m[32m  const a = process.env.NEXT_PUBLIC_APP_URL;[m
+[32m+[m[32m  const b = process.env.NEXTAUTH_URL;[m
+[32m+[m[32m  return (a || b || "http://localhost:3000").replace(/\/$/, "");[m
+[32m+[m[32m}[m
+[32m+[m
+ export async function POST(request: Request) {[m
+   try {[m
+     const data = await request.json();[m
+[36m@@ -36,7 +46,6 @@[m [mexport async function POST(request: Request) {[m
+       photoBackPath,[m
+     } = data ?? {};[m
+ [m
+[31m-    // Validate required fields[m
+     if ([m
+       !serviceId ||[m
+       !bookingDate ||[m
+[36m@@ -62,7 +71,6 @@[m [mexport async function POST(request: Request) {[m
+       );[m
+     }[m
+ [m
+[31m-    // Check if slot is already booked[m
+     const existingBooking = await prisma.booking.findFirst({[m
+       where: {[m
+         bookingDate: new Date(bookingDate),[m
+[36m@@ -78,10 +86,8 @@[m [mexport async function POST(request: Request) {[m
+       );[m
+     }[m
+ [m
+[31m-    // Generate unique order number[m
+     const orderNumber = await generateUniqueOrderNumber();[m
+ [m
+[31m-    // Create booking[m
+     const booking = await prisma.booking.create({[m
+       data: {[m
+         orderNumber,[m
+[36m@@ -9

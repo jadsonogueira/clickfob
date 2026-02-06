@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
-import { generatePresignedUploadUrl } from "@/lib/s3";
+import { uploadImage } from "@/lib/cloudinary";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+function isImageFile(file: File) {
+  return !!file?.type && file.type.startsWith("image/");
+}
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
+
     const frontFile = formData.get("front") as File | null;
     const backFile = formData.get("back") as File | null;
 
@@ -16,64 +22,32 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate presigned URLs for both files
-    const frontResult = await generatePresignedUploadUrl(
-      `fob-front-${frontFile.name}`,
-      frontFile.type,
-      true
-    );
-    const backResult = await generatePresignedUploadUrl(
-      `fob-back-${backFile.name}`,
-      backFile.type,
-      true
-    );
-
-    // Upload front file
-    const frontBuffer = await frontFile.arrayBuffer();
-    const frontUploadHeaders: Record<string, string> = {
-      "Content-Type": frontFile.type,
-    };
-    if (frontResult.uploadUrl.includes("content-disposition")) {
-      frontUploadHeaders["Content-Disposition"] = "attachment";
-    }
-    const frontUploadRes = await fetch(frontResult.uploadUrl, {
-      method: "PUT",
-      body: Buffer.from(frontBuffer),
-      headers: frontUploadHeaders,
-    });
-
-    if (!frontUploadRes.ok) {
-      throw new Error("Failed to upload front photo");
+    if (!isImageFile(frontFile) || !isImageFile(backFile)) {
+      return NextResponse.json(
+        { success: false, error: "Only image files are allowed" },
+        { status: 400 }
+      );
     }
 
-    // Upload back file
-    const backBuffer = await backFile.arrayBuffer();
-    const backUploadHeaders: Record<string, string> = {
-      "Content-Type": backFile.type,
-    };
-    if (backResult.uploadUrl.includes("content-disposition")) {
-      backUploadHeaders["Content-Disposition"] = "attachment";
-    }
-    const backUploadRes = await fetch(backResult.uploadUrl, {
-      method: "PUT",
-      body: Buffer.from(backBuffer),
-      headers: backUploadHeaders,
-    });
-
-    if (!backUploadRes.ok) {
-      throw new Error("Failed to upload back photo");
-    }
+    // ✅ Upload paralelo
+    const [frontUrl, backUrl] = await Promise.all([
+      uploadImage(frontFile, "clickfob/front"),
+      uploadImage(backFile, "clickfob/back"),
+    ]);
 
     return NextResponse.json({
       success: true,
-      frontPath: frontResult.cloud_storage_path,
-      backPath: backResult.cloud_storage_path,
+      frontPath: frontUrl,
+      backPath: backUrl,
     });
-  } catch (error) {
-    console.error("Upload error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to upload files" },
-      { status: 500 }
-    );
+  } catch (error: any) {
+    console.error("Cloudinary upload error:", error);
+
+    const message =
+      process.env.NODE_ENV !== "production"
+        ? error?.message || String(error)
+        : "Failed to upload images";
+
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

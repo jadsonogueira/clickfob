@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { getFileUrl } from "@/lib/s3";
 
 export const dynamic = "force-dynamic";
 
@@ -29,10 +28,7 @@ export async function GET(
       );
     }
 
-    // Get photo URLs
-    const photoFrontUrl = await getFileUrl(booking.photoFrontUrl, booking.photoFrontPublic);
-    const photoBackUrl = await getFileUrl(booking.photoBackUrl, booking.photoBackPublic);
-
+    // ✅ Agora são URLs diretas (Cloudinary), então devolve direto:
     return NextResponse.json({
       success: true,
       booking: {
@@ -46,8 +42,8 @@ export async function GET(
         customerUnit: booking.customerUnit,
         customerEmail: booking.customerEmail,
         status: booking.status,
-        photoFrontUrl,
-        photoBackUrl,
+        photoFrontUrl: booking.photoFrontUrl,
+        photoBackUrl: booking.photoBackUrl,
         createdAt: booking.createdAt,
       },
     });

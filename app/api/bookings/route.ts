@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateUniqueOrderNumber } from "@/lib/order-utils";
-import { getFileUrl } from "@/lib/s3";
-import { sendEmail, generateCustomerConfirmationEmail, generateAdminNotificationEmail } from "@/lib/email";
+import { createAdminActionToken } from "@/lib/admin-actions";
+import {
+  sendEmail,
+  generateCustomerConfirmationEmail,
+  generateAdminNotificationEmail,
+} from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +22,12 @@ const timeSlotLabels: Record<string, string> = {
   "13-15": "1:00 PM - 3:00 PM",
   "15-17": "3:00 PM - 5:00 PM",
 };
+
+function getAppBaseUrl() {
+  const a = process.env.NEXT_PUBLIC_APP_URL;
+  const b = process.env.NEXTAUTH_URL;
+  return (a || b || "http://localhost:3000").replace(/\/$/, "");
+}
 
 export async function POST(request: Request) {
   try {
@@ -36,7 +46,6 @@ export async function POST(request: Request) {
       photoBackPath,
     } = data ?? {};
 
-    // Validate required fields
     if (
       !serviceId ||
       !bookingDate ||
@@ -62,7 +71,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if slot is already booked
     const existingBooking = await prisma.booking.findFirst({
       where: {
         bookingDate: new Date(bookingDate),
@@ -78,10 +86,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate unique order number
     const orderNumber = await generateUniqueOrderNumber();
 
-    // Create booking
     const booking = await prisma.booking.create({
       data: {
         orderNumber,
@@ -95,17 +101,17 @@ export async function POST(request: Request) {
         customerEmail,
         customerWhatsapp,
         additionalNotes: additionalNotes || null,
+
+        // Cloudinary URLs
         photoFrontUrl: photoFrontPath,
         photoBackUrl: photoBackPath,
+
         photoFrontPublic: true,
         photoBackPublic: true,
+
         status: "pending",
       },
     });
-
-    // Get photo URLs for emails
-    const photoFrontUrl = await getFileUrl(photoFrontPath, true);
-    const photoBackUrl = await getFileUrl(photoBackPath, true);
 
     const formattedDate = new Date(bookingDate).toLocaleDateString("en-US", {
       weekday: "long",
@@ -115,11 +121,36 @@ export async function POST(request: Request) {
     });
 
     const timeLabel = timeSlotLabels[bookingTime] || bookingTime;
-    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+
+    const baseUrl = getAppBaseUrl();
     const manageUrl = `${baseUrl}/manage/${orderNumber}`;
 
-    // Send customer confirmation email
-    await sendEmail({
+    // photos already cloudinary URLs
+    const photoFrontUrl = photoFrontPath;
+    const photoBackUrl = photoBackPath;
+
+    // Admin actions links
+    const confirmToken = createAdminActionToken({
+      orderNumber,
+      action: "confirm",
+    });
+    const cancelToken = createAdminActionToken({
+      orderNumber,
+      action: "cancel",
+    });
+
+    const confirmUrl = `${baseUrl}/api/admin/booking-action?order=${encodeURIComponent(
+      orderNumber
+    )}&action=confirm&token=${encodeURIComponent(confirmToken)}`;
+
+    const cancelUrl = `${baseUrl}/api/admin/booking-action?order=${encodeURIComponent(
+      orderNumber
+    )}&action=cancel&token=${encodeURIComponent(cancelToken)}`;
+
+    const adminEmail = process.env.ADMIN_EMAIL || "clickfobtoronto@gmail.com";
+
+    // ✅ NÃO TRAVAR A RESPOSTA: dispara emails sem await
+    const customerEmailPromise = sendEmail({
       to: customerEmail,
       subject: `ClickFob Booking Confirmation - Order #${orderNumber}`,
       htmlBody: generateCustomerConfirmationEmail({
@@ -129,14 +160,15 @@ export async function POST(request: Request) {
         bookingDate: formattedDate,
         bookingTime: timeLabel,
         customerName,
-        customerAddress: customerUnit ? `${customerAddress}, ${customerUnit}` : customerAddress,
+        customerAddress: customerUnit
+          ? `${customerAddress}, ${customerUnit}`
+          : customerAddress,
         manageUrl,
       }),
     });
 
-    // Send admin notification email
-    await sendEmail({
-      to: "clickfob@gmail.com",
+    const adminEmailPromise = sendEmail({
+      to: adminEmail,
       subject: `New Booking Request - Order #${orderNumber}`,
       htmlBody: generateAdminNotificationEmail({
         orderNumber,
@@ -152,9 +184,32 @@ export async function POST(request: Request) {
         additionalNotes: additionalNotes || undefined,
         photoFrontUrl,
         photoBackUrl,
+        confirmUrl,
+        cancelUrl,
+        manageUrl,
       }),
     });
 
+    // Loga falhas sem afetar o usuário
+    void Promise.allSettled([customerEmailPromise, adminEmailPromise]).then(
+      (results) => {
+        const [r1, r2] = results;
+        if (r1.status === "rejected") {
+          console.error(
+            `Email to customer failed (order ${orderNumber}):`,
+            r1.reason
+          );
+        }
+        if (r2.status === "rejected") {
+          console.error(
+            `Email to admin failed (order ${orderNumber}):`,
+            r2.reason
+          );
+        }
+      }
+    );
+
+    // ✅ responde rápido
     return NextResponse.json({
       success: true,
       orderNumber,
