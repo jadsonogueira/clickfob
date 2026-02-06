@@ -20,49 +20,26 @@ type Booking = {
   createdAt?: string;
 };
 
-const timeSlotLabels: Record<string, string> = {
-  "9-11": "9:00 AM - 11:00 AM",
-  "11-13": "11:00 AM - 1:00 PM",
-  "13-15": "1:00 PM - 3:00 PM",
-  "15-17": "3:00 PM - 5:00 PM",
-};
-
 export default function AdminDashboardPage() {
   const [status, setStatus] = useState<"all" | "pending" | "confirmed" | "cancelled">(
     "all"
   );
-  const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [counts, setCounts] = useState({
-    pending: 0,
-    confirmed: 0,
-    cancelled: 0,
-    total: 0,
-  });
-
-  const qDebounced = useDebounce(q, 300);
 
   async function load() {
     setLoading(true);
     try {
-      const qs = new URLSearchParams();
-      qs.set("status", status);
-      if (qDebounced.trim()) qs.set("q", qDebounced.trim());
-
-      const res = await fetch(`/api/admin/bookings?${qs.toString()}`, {
+      const res = await fetch(`/api/admin/bookings?status=${status}`, {
         cache: "no-store",
       });
-
       const json = await res.json();
       if (!json?.ok) {
         alert(json?.error || "Failed to load bookings");
         setBookings([]);
         return;
       }
-
       setBookings(json.bookings || []);
-      setCounts(json.counts || counts);
     } finally {
       setLoading(false);
     }
@@ -71,44 +48,18 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, qDebounced]);
+  }, [status]);
+
+  const counts = useMemo(() => {
+    const c = { pending: 0, confirmed: 0, cancelled: 0 };
+    for (const b of bookings) c[b.status]++;
+    return c;
+  }, [bookings]);
 
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST" });
     window.location.href = "/admin/login";
   }
-
-  async function doQuickAction(orderNumber: string, action: "confirm" | "cancel") {
-    const ok =
-      action === "confirm"
-        ? confirm(`Confirm booking ${orderNumber}?`)
-        : confirm(`Cancel booking ${orderNumber}?`);
-    if (!ok) return;
-
-    const res = await fetch(
-      `/api/admin/booking-action?order=${encodeURIComponent(orderNumber)}&action=${action}`,
-      { method: "POST" }
-    );
-    const json = await res.json();
-
-    if (!json?.ok) {
-      alert(json?.error || "Action failed");
-      return;
-    }
-
-    await load();
-  }
-
-  const statusButtons = useMemo(
-    () =>
-      [
-        { key: "all", label: "ALL", count: counts.total },
-        { key: "pending", label: "PENDING", count: counts.pending },
-        { key: "confirmed", label: "CONFIRMED", count: counts.confirmed },
-        { key: "cancelled", label: "CANCELLED", count: counts.cancelled },
-      ] as const,
-    [counts]
-  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -137,36 +88,27 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mt-6 flex flex-col md:flex-row md:items-center gap-3">
-          <div className="flex flex-wrap gap-2">
-            {statusButtons.map((s) => (
-              <button
-                key={s.key}
-                onClick={() => setStatus(s.key)}
-                className={`rounded-xl px-4 py-2 font-semibold border ${
-                  status === s.key
-                    ? "bg-slate-900 text-white border-slate-900"
-                    : "bg-white text-slate-800 border-slate-200"
-                }`}
-              >
-                {s.label}{" "}
-                <span className="ml-2 text-xs opacity-80">{s.count ?? 0}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="md:ml-auto w-full md:w-[360px]">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-slate-300"
-              placeholder="Search: order / customer / email"
-            />
-          </div>
+        <div className="mt-6 flex flex-wrap gap-2">
+          {(["all", "pending", "confirmed", "cancelled"] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatus(s)}
+              className={`rounded-xl px-4 py-2 font-semibold border ${
+                status === s
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-white text-slate-800 border-slate-200"
+              }`}
+            >
+              {s.toUpperCase()}
+              {s !== "all" ? (
+                <span className="ml-2 text-xs opacity-80">
+                  {counts[s as "pending" | "confirmed" | "cancelled"] ?? 0}
+                </span>
+              ) : null}
+            </button>
+          ))}
         </div>
 
-        {/* Table */}
         <div className="mt-6 rounded-2xl bg-white shadow overflow-hidden">
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <div className="font-bold text-slate-900">Bookings</div>
@@ -196,99 +138,57 @@ export default function AdminDashboardPage() {
                   </tr>
                 ) : null}
 
-                {bookings.map((b) => {
-                  const timeLabel = timeSlotLabels[b.bookingTime] || b.bookingTime;
-                  const dateLabel = new Date(b.bookingDate).toLocaleDateString("en-CA");
-
-                  return (
-                    <tr key={b.id} className="border-t border-slate-100">
-                      <td className="p-3 font-semibold text-slate-900">
-                        <Link className="underline" href={`/admin/booking/${b.orderNumber}`}>
-                          #{b.orderNumber}
-                        </Link>
-                      </td>
-
-                      <td className="p-3">
-                        <span
-                          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${
-                            b.status === "confirmed"
-                              ? "bg-green-100 text-green-800"
-                              : b.status === "cancelled"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-amber-100 text-amber-900"
-                          }`}
-                        >
-                          {b.status.toUpperCase()}
-                        </span>
-                      </td>
-
-                      <td className="p-3 text-slate-800">
-                        <div className="font-semibold">{b.customerName}</div>
-                        <div className="text-sm text-slate-600">{b.customerEmail}</div>
-                      </td>
-
-                      <td className="p-3 text-slate-800">
-                        <div className="font-semibold">{b.serviceType}</div>
-                        <div className="text-sm text-slate-600">
-                          ${b.servicePrice.toFixed(2)}
-                        </div>
-                      </td>
-
-                      <td className="p-3 text-slate-800">
-                        <div>{dateLabel}</div>
-                        <div className="text-sm text-slate-600">{timeLabel}</div>
-                      </td>
-
-                      <td className="p-3">
-                        <div className="flex flex-wrap gap-2">
-                          <Link
-                            href={`/admin/booking/${b.orderNumber}`}
-                            className="inline-flex rounded-xl bg-slate-900 text-white px-3 py-2 text-sm font-semibold"
-                          >
-                            Open
-                          </Link>
-
-                          {b.status === "pending" ? (
-                            <>
-                              <button
-                                onClick={() => doQuickAction(b.orderNumber, "confirm")}
-                                className="inline-flex rounded-xl bg-green-600 text-white px-3 py-2 text-sm font-extrabold"
-                              >
-                                Confirm
-                              </button>
-                              <button
-                                onClick={() => doQuickAction(b.orderNumber, "cancel")}
-                                className="inline-flex rounded-xl bg-red-600 text-white px-3 py-2 text-sm font-extrabold"
-                              >
-                                Cancel
-                              </button>
-                            </>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {bookings.map((b) => (
+                  <tr key={b.id} className="border-t border-slate-100">
+                    <td className="p-3 font-semibold text-slate-900">
+                      <Link className="underline" href={`/admin/booking/${b.orderNumber}`}>
+                        #{b.orderNumber}
+                      </Link>
+                    </td>
+                    <td className="p-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${
+                          b.status === "confirmed"
+                            ? "bg-green-100 text-green-800"
+                            : b.status === "cancelled"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-amber-100 text-amber-900"
+                        }`}
+                      >
+                        {b.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="p-3 text-slate-800">
+                      <div className="font-semibold">{b.customerName}</div>
+                      <div className="text-sm text-slate-600">{b.customerEmail}</div>
+                    </td>
+                    <td className="p-3 text-slate-800">
+                      <div className="font-semibold">{b.serviceType}</div>
+                      <div className="text-sm text-slate-600">${b.servicePrice.toFixed(2)}</div>
+                    </td>
+                    <td className="p-3 text-slate-800">
+                      <div>{new Date(b.bookingDate).toLocaleDateString("en-CA")}</div>
+                      <div className="text-sm text-slate-600">{b.bookingTime}</div>
+                    </td>
+                    <td className="p-3">
+                      <Link
+                        href={`/admin/booking/${b.orderNumber}`}
+                        className="inline-flex rounded-xl bg-slate-900 text-white px-3 py-2 text-sm font-semibold"
+                      >
+                        Open
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
         </div>
 
         <p className="text-xs text-slate-500 mt-6">
-          Tip: Quick actions are available for <strong>pending</strong> bookings only.
+          Admin session uses a signed cookie (no DB). Protected by middleware.
         </p>
       </div>
     </div>
   );
-}
-
-function useDebounce<T>(value: T, delayMs: number) {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(t);
-  }, [value, delayMs]);
-
-  return debounced;
 }

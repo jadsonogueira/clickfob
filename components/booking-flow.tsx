@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -58,11 +59,43 @@ export default function BookingFlow() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const initialService = searchParams?.get("service") || "";
+  const lang = (searchParams?.get("lang") || "en").toLowerCase() === "fr" ? "fr" : "en";
+  const isFR = lang === "fr";
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const text = isFR
+    ? {
+        back: "Retour",
+        continue: "Continuer",
+        confirm: "Confirmer la réservation",
+        processing: "Traitement...",
+        authLabel:
+          "Je confirme être un utilisateur autorisé de ce porte-clés et comprendre que la duplication est soumise à la compatibilité technique.",
+        authHint:
+          "En confirmant, vous acceptez nos Conditions d’utilisation et notre Politique de confidentialité.",
+        terms: "Conditions d’utilisation",
+        privacy: "Politique de confidentialité",
+        mustAccept: "Veuillez confirmer l’autorisation avant de finaliser.",
+      }
+    : {
+        back: "Back",
+        continue: "Continue",
+        confirm: "Confirm Booking",
+        processing: "Processing...",
+        authLabel:
+          "I confirm that I am an authorized user of this key fob and understand that duplication is subject to technical compatibility.",
+        authHint:
+          "By confirming, you agree to our Terms & Conditions and Privacy Policy.",
+        terms: "Terms & Conditions",
+        privacy: "Privacy Policy",
+        mustAccept: "Please confirm authorization before submitting.",
+      };
+
+  const [authorizationAccepted, setAuthorizationAccepted] = useState(false);
 
   const [bookingData, setBookingData] = useState<BookingData>({
     serviceId: initialService,
@@ -166,12 +199,17 @@ export default function BookingFlow() {
       }
     }
 
+    if (currentStep === 5 && !authorizationAccepted) {
+      newErrors.authorization = text.mustAccept;
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors)?.length === 0;
   };
 
   const handleNext = () => {
     if (validateStep()) {
+      // When leaving Confirm step in the future, keep as-is.
       setCurrentStep((prev) => Math.min(prev + 1, 5));
     }
   };
@@ -181,6 +219,13 @@ export default function BookingFlow() {
   };
 
   const handleSubmit = async () => {
+    if (!authorizationAccepted) {
+      setErrors((prev) => ({
+        ...prev,
+        authorization: text.mustAccept,
+      }));
+      return;
+    }
     setIsLoading(true);
     try {
       // Upload photos first
@@ -220,7 +265,7 @@ export default function BookingFlow() {
       const bookingResult = await bookingRes.json();
 
       if (bookingResult?.success) {
-        router.push(`/booking-success?order=${bookingResult.orderNumber}`);
+        router.push(`/booking-success?order=${bookingResult.orderNumber}&lang=${lang}`);
       } else {
         throw new Error(bookingResult?.error || "Failed to create booking");
       }
@@ -738,6 +783,42 @@ export default function BookingFlow() {
                   <p className="text-gray-600">{bookingData.additionalNotes}</p>
                 </div>
               )}
+
+              {/* Authorization + legal */}
+              <div className="bg-white border rounded-xl p-4">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={authorizationAccepted}
+                    onChange={(e) => {
+                      setAuthorizationAccepted(e.target.checked);
+                      setErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.authorization;
+                        return next;
+                      });
+                    }}
+                    className="mt-1 h-4 w-4"
+                  />
+                  <span className="text-sm text-gray-800">{text.authLabel}</span>
+                </label>
+                <p className="text-xs text-gray-500 mt-2">
+                  {text.authHint} {" "}
+                  <Link href={`/terms?lang=${lang}`} className="text-blue-600 hover:underline">
+                    {text.terms}
+                  </Link>
+                  {" "}
+                  ·{" "}
+                  <Link href={`/privacy?lang=${lang}`} className="text-blue-600 hover:underline">
+                    {text.privacy}
+                  </Link>
+                </p>
+                {errors?.authorization && (
+                  <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                    <AlertCircle size={14} /> {errors.authorization}
+                  </p>
+                )}
+              </div>
             </div>
 
             {errors?.submit && (
@@ -756,7 +837,7 @@ export default function BookingFlow() {
               onClick={handleBack}
               className="flex items-center gap-2 px-6 py-3 text-gray-600 hover:text-gray-900 font-medium"
             >
-              <ChevronLeft size={20} /> Back
+              <ChevronLeft size={20} /> {text.back}
             </button>
           ) : (
             <div />
@@ -768,22 +849,22 @@ export default function BookingFlow() {
               onClick={handleNext}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all"
             >
-              Continue <ChevronRight size={20} />
+              {text.continue} <ChevronRight size={20} />
             </button>
           ) : (
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={isLoading}
+              disabled={isLoading || !authorizationAccepted}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl font-semibold transition-all disabled:opacity-50"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="animate-spin" size={20} /> Processing...
+                  <Loader2 className="animate-spin" size={20} /> {text.processing}
                 </>
               ) : (
                 <>
-                  <Check size={20} /> Confirm Booking
+                  <Check size={20} /> {text.confirm}
                 </>
               )}
             </button>

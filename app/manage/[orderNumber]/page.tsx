@@ -8,7 +8,7 @@ export default function ManageBookingDetailPage({
 }) {
   return (
     <Suspense fallback={<div className="text-center py-12">Loading...</div>}>
-      <ManageBookingDetail orderNumber={params?.orderNumber || ""} mode="admin" />
+      <ManageBookingDetail orderNumber={params?.orderNumber || ""} />
     </Suspense>
   );
 }

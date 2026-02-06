@@ -14,7 +14,6 @@ import {
   ArrowLeft,
   Send,
   Image as ImageIcon,
-  Shield,
 } from "lucide-react";
 
 interface Booking {
@@ -27,17 +26,10 @@ interface Booking {
   customerAddress: string;
   customerUnit?: string;
   customerEmail: string;
-  customerWhatsapp?: string;
-  additionalNotes?: string;
   status: "pending" | "confirmed" | "cancelled";
   photoFrontUrl: string;
   photoBackUrl: string;
   createdAt: string;
-
-  // opcionais (se existirem no retorno)
-  statusUpdatedAt?: string | null;
-  confirmedAt?: string | null;
-  cancelledAt?: string | null;
 }
 
 const timeSlotLabels: Record<string, string> = {
@@ -72,35 +64,19 @@ function StatusBadge({ status }: { status: string }) {
         styles[status] || styles.pending
       }`}
     >
-      {icons[status] || icons.pending} {labels[status] || "Unknown"}
+      {icons[status]} {labels[status] || "Unknown"}
     </span>
   );
 }
 
-type Props = {
-  orderNumber: string;
-  mode?: "customer" | "admin";
-};
-
-export default function ManageBookingDetail({
-  orderNumber,
-  mode = "customer",
-}: Props) {
-  const isAdmin = mode === "admin";
-
+export default function ManageBookingDetail({ orderNumber }: { orderNumber: string }) {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-
-  // customer flow
   const [showChangeForm, setShowChangeForm] = useState(false);
   const [changeRequest, setChangeRequest] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-
-  // admin flow
-  const [isAdminUpdating, setIsAdminUpdating] = useState(false);
-  const [adminMessage, setAdminMessage] = useState("");
 
   // ✅ Normaliza URL (Cloudinary absoluta fica intacta; "/https://..." vira "https://...")
   const normalizeImageUrl = useCallback((input?: string | null) => {
@@ -118,48 +94,32 @@ export default function ManageBookingDetail({
   }, []);
 
   const fetchBooking = useCallback(async () => {
-    setIsLoading(true);
-    setError("");
-    setAdminMessage("");
-
     try {
-      const url = isAdmin
-        ? `/api/admin/booking/${orderNumber}`
-        : `/api/bookings/${orderNumber}`;
-
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await fetch(`/api/bookings/${orderNumber}`);
       const data = await res.json();
 
-      if (isAdmin) {
-        if (data?.ok) {
-          setBooking(data.booking);
-        } else {
-          setError(data?.error || "Booking not found");
-        }
+      if (data?.success) {
+        setBooking(data.booking);
       } else {
-        if (data?.success) {
-          setBooking(data.booking);
-        } else {
-          setError(data?.error || "Booking not found");
-        }
+        setError(data?.error || "Booking not found");
       }
     } catch {
       setError("Failed to load booking");
     } finally {
       setIsLoading(false);
     }
-  }, [orderNumber, isAdmin]);
+  }, [orderNumber]);
 
   useEffect(() => {
-    if (orderNumber) fetchBooking();
+    if (orderNumber) {
+      fetchBooking();
+    }
   }, [orderNumber, fetchBooking]);
 
   const handleSubmitChangeRequest = async () => {
     if (!changeRequest?.trim()) return;
 
     setIsSubmitting(true);
-    setError("");
-
     try {
       const res = await fetch(`/api/bookings/${orderNumber}/change-request`, {
         method: "POST",
@@ -181,51 +141,6 @@ export default function ManageBookingDetail({
     }
   };
 
-  const handleAdminSetStatus = async (status: "confirmed" | "cancelled") => {
-    if (!booking) return;
-
-    setError("");
-    setAdminMessage("");
-
-    const pretty = status === "confirmed" ? "CONFIRM" : "CANCEL";
-    const ok = window.confirm(
-      `Are you sure you want to ${pretty} booking ${booking.orderNumber}?`
-    );
-    if (!ok) return;
-
-    setIsAdminUpdating(true);
-
-    try {
-      const res = await fetch(`/api/admin/booking/${orderNumber}/status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-
-      const data = await res.json();
-      if (!data?.ok) {
-        setError(data?.error || "Failed to update status");
-        return;
-      }
-
-      // Se endpoint retornou booking atualizado
-      if (data?.booking) setBooking(data.booking);
-
-      setAdminMessage(
-        status === "confirmed"
-          ? "Booking confirmed and customer was notified."
-          : "Booking cancelled and customer was notified."
-      );
-
-      // reforça atualização
-      await fetchBooking();
-    } catch {
-      setError("Failed to update status");
-    } finally {
-      setIsAdminUpdating(false);
-    }
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -237,17 +152,8 @@ export default function ManageBookingDetail({
   };
 
   // ✅ URLs prontas e seguras para render
-  const frontUrl = useMemo(
-    () => normalizeImageUrl(booking?.photoFrontUrl),
-    [booking?.photoFrontUrl, normalizeImageUrl]
-  );
-  const backUrl = useMemo(
-    () => normalizeImageUrl(booking?.photoBackUrl),
-    [booking?.photoBackUrl, normalizeImageUrl]
-  );
-
-  const backHref = isAdmin ? "/admin" : "/manage";
-  const backLabel = isAdmin ? "Back to Admin" : "Back to Search";
+  const frontUrl = useMemo(() => normalizeImageUrl(booking?.photoFrontUrl), [booking?.photoFrontUrl, normalizeImageUrl]);
+  const backUrl = useMemo(() => normalizeImageUrl(booking?.photoBackUrl), [booking?.photoBackUrl, normalizeImageUrl]);
 
   if (isLoading) {
     return (
@@ -270,10 +176,10 @@ export default function ManageBookingDetail({
               We couldn't find a booking with order number <strong>{orderNumber}</strong>
             </p>
             <Link
-              href={backHref}
+              href="/manage"
               className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
             >
-              <ArrowLeft size={18} /> {backLabel}
+              <ArrowLeft size={18} /> Try Another Order Number
             </Link>
           </div>
         </div>
@@ -281,17 +187,14 @@ export default function ManageBookingDetail({
     );
   }
 
-  const wa = booking?.customerWhatsapp || "14167707036";
-  const waDigits = String(wa).replace(/[^0-9]/g, "") || "14167707036";
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
         <Link
-          href={backHref}
+          href="/manage"
           className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium mb-6"
         >
-          <ArrowLeft size={18} /> {backLabel}
+          <ArrowLeft size={18} /> Back to Search
         </Link>
 
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
@@ -304,13 +207,6 @@ export default function ManageBookingDetail({
               </div>
               <StatusBadge status={booking?.status || "pending"} />
             </div>
-
-            {isAdmin && (
-              <div className="mt-4 inline-flex items-center gap-2 text-blue-100 text-sm">
-                <Shield size={16} />
-                Admin view
-              </div>
-            )}
           </div>
 
           {/* Content */}
@@ -345,9 +241,7 @@ export default function ManageBookingDetail({
                 <div>
                   <p className="text-sm text-gray-500">Time</p>
                   <p className="font-medium text-gray-900">
-                    {timeSlotLabels[booking?.bookingTime || ""] ||
-                      booking?.bookingTime ||
-                      "N/A"}
+                    {timeSlotLabels[booking?.bookingTime || ""] || booking?.bookingTime || "N/A"}
                   </p>
                 </div>
               </div>
@@ -364,15 +258,6 @@ export default function ManageBookingDetail({
                 )}
               </div>
             </div>
-
-            {/* Customer */}
-            {isAdmin && (
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-sm text-gray-500 mb-1">Customer</p>
-                <p className="font-semibold text-gray-900">{booking?.customerName}</p>
-                <p className="text-gray-700 text-sm">{booking?.customerEmail}</p>
-              </div>
-            )}
 
             {/* Photos */}
             <div className="p-4 bg-gray-50 rounded-xl">
@@ -393,11 +278,7 @@ export default function ManageBookingDetail({
                       rel="noopener noreferrer"
                       className="block aspect-video bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
                     >
-                      <img
-                        src={frontUrl}
-                        alt="Front photo"
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={frontUrl} alt="Front photo" className="w-full h-full object-cover" />
                     </a>
                   ) : (
                     <div className="block aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center text-gray-500 text-sm">
@@ -417,11 +298,7 @@ export default function ManageBookingDetail({
                       rel="noopener noreferrer"
                       className="block aspect-video bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
                     >
-                      <img
-                        src={backUrl}
-                        alt="Back photo"
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={backUrl} alt="Back photo" className="w-full h-full object-cover" />
                     </a>
                   ) : (
                     <div className="block aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center text-gray-500 text-sm">
@@ -434,79 +311,7 @@ export default function ManageBookingDetail({
 
             {/* Actions */}
             <div className="border-t pt-6 space-y-4">
-              {/* ADMIN ACTIONS */}
-              {isAdmin && (
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div>
-                      <p className="font-semibold text-gray-900">Admin Actions</p>
-                      <p className="text-sm text-gray-600">
-                        Confirm or cancel this booking (customer will receive an email).
-                      </p>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleAdminSetStatus("confirmed")}
-                        disabled={isAdminUpdating || booking?.status === "confirmed"}
-                        className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl font-semibold transition-all disabled:opacity-50"
-                      >
-                        {isAdminUpdating ? (
-                          <Loader2 className="animate-spin" size={18} />
-                        ) : (
-                          <CheckCircle size={18} />
-                        )}
-                        Confirm
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleAdminSetStatus("cancelled")}
-                        disabled={isAdminUpdating || booking?.status === "cancelled"}
-                        className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-semibold transition-all disabled:opacity-50"
-                      >
-                        {isAdminUpdating ? (
-                          <Loader2 className="animate-spin" size={18} />
-                        ) : (
-                          <XCircle size={18} />
-                        )}
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex flex-col sm:flex-row gap-3">
-                    <a
-                      href={`https://wa.me/${waDigits}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-semibold transition-all"
-                    >
-                      <MessageCircle size={20} />
-                      WhatsApp Customer
-                    </a>
-
-                    <button
-                      type="button"
-                      onClick={fetchBooking}
-                      disabled={isAdminUpdating}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition-all disabled:opacity-50"
-                    >
-                      Refresh
-                    </button>
-                  </div>
-
-                  {adminMessage && (
-                    <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-xl text-green-800 text-sm">
-                      {adminMessage}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* CUSTOMER ACTIONS */}
-              {!isAdmin && !showChangeForm && !submitSuccess && (
+              {!showChangeForm && !submitSuccess && (
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
                     type="button"
@@ -527,7 +332,7 @@ export default function ManageBookingDetail({
                 </div>
               )}
 
-              {!isAdmin && showChangeForm && !submitSuccess && (
+              {showChangeForm && !submitSuccess && (
                 <div className="bg-gray-50 rounded-xl p-4">
                   <h3 className="font-semibold text-gray-900 mb-3">Request Changes</h3>
                   <textarea
@@ -551,18 +356,14 @@ export default function ManageBookingDetail({
                       disabled={isSubmitting || !changeRequest?.trim()}
                       className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold transition-all disabled:opacity-50"
                     >
-                      {isSubmitting ? (
-                        <Loader2 className="animate-spin" size={20} />
-                      ) : (
-                        <Send size={20} />
-                      )}
+                      {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
                       Submit Request
                     </button>
                   </div>
                 </div>
               )}
 
-              {!isAdmin && submitSuccess && (
+              {submitSuccess && (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                   <div className="flex items-center gap-3">
                     <CheckCircle className="text-green-600" size={24} />
@@ -577,7 +378,7 @@ export default function ManageBookingDetail({
               )}
             </div>
 
-            {/* Errors */}
+            {/* Optional: show error below if exists */}
             {error && booking && (
               <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
                 {error}

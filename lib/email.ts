@@ -110,6 +110,14 @@ export function generateCustomerConfirmationEmail({
   customerAddress: string;
   manageUrl: string;
 }): string {
+  let origin = "";
+  try {
+    origin = new URL(manageUrl).origin;
+  } catch {
+    origin = "";
+  }
+  const termsUrl = origin ? `${origin}/terms?lang=en` : "";
+  const privacyUrl = origin ? `${origin}/privacy?lang=en` : "";
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafb; padding: 20px;">
       <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -149,6 +157,22 @@ export function generateCustomerConfirmationEmail({
 
           <div style="background: #fef3c7; border-radius: 8px; padding: 15px; margin: 20px 0;">
             <p style="margin: 0; color: #92400e; font-size: 14px;">⏳ Your booking is pending confirmation. We'll contact you shortly to confirm.</p>
+          </div>
+
+          <div style="background: #f3f4f6; border-radius: 8px; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0; color: #374151; font-size: 13px; line-height: 1.5;">
+              <strong>Authorization required:</strong> You confirmed that you are an authorized user of this key fob.
+              Duplication is subject to technical compatibility.
+            </p>
+            ${
+              termsUrl && privacyUrl
+                ? `<p style="margin: 10px 0 0 0; color:#6b7280; font-size: 12px;">
+                    <a href="${termsUrl}" style="color:#2563eb; text-decoration:none;">Terms & Conditions</a>
+                    &nbsp;·&nbsp;
+                    <a href="${privacyUrl}" style="color:#2563eb; text-decoration:none;">Privacy Policy</a>
+                  </p>`
+                : ""
+            }
           </div>
 
           <div style="text-align: center; margin: 30px 0;">
@@ -203,6 +227,16 @@ export function generateAdminNotificationEmail({
   manageUrl?: string;
   adminActionHtml?: string;
 }): string {
+  let origin = "";
+  try {
+    if (manageUrl) origin = new URL(manageUrl).origin;
+    else if (confirmUrl) origin = new URL(confirmUrl).origin;
+    else if (cancelUrl) origin = new URL(cancelUrl).origin;
+  } catch {
+    origin = "";
+  }
+  const termsUrl = origin ? `${origin}/terms?lang=en` : "";
+  const privacyUrl = origin ? `${origin}/privacy?lang=en` : "";
   const actionsHtml =
     adminActionHtml ||
     (confirmUrl && cancelUrl
@@ -256,6 +290,20 @@ export function generateAdminNotificationEmail({
           </table>
 
           <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Customer Information</h3>
+          <div style="background:#f3f4f6; border-radius: 8px; padding: 12px; margin: 12px 0 18px 0;">
+            <p style="margin: 0; color: #374151; font-size: 13px; line-height: 1.5;">
+              <strong>Authorization confirmed:</strong> Customer confirmed they are an authorized user. Duplication is subject to compatibility.
+            </p>
+            ${
+              termsUrl && privacyUrl
+                ? `<p style="margin: 8px 0 0 0; color:#6b7280; font-size: 12px;">
+                    <a href="${termsUrl}" style="color:#2563eb; text-decoration:none;">Terms & Conditions</a>
+                    &nbsp;·&nbsp;
+                    <a href="${privacyUrl}" style="color:#2563eb; text-decoration:none;">Privacy Policy</a>
+                  </p>`
+                : ""
+            }
+          </div>
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
             <tr><td style="padding: 8px 0; color: #6b7280;">Name:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
               customerName
@@ -381,123 +429,86 @@ export function generateBookingStatusUpdateEmail({
   bookingTime?: string;
   manageUrl: string;
 }): string {
-  const isPending = status === "pending";
-  const isConfirmed = status === "confirmed";
-  const isCancelled = status === "cancelled";
+  const statusLabel =
+    status === "confirmed"
+      ? "Confirmed ✅"
+      : status === "cancelled"
+      ? "Cancelled ❌"
+      : "Pending ⏳";
 
-  const title = isPending
-    ? "Booking Confirmation"
-    : "Booking Status Update";
+  const statusColor =
+    status === "confirmed"
+      ? "#16a34a"
+      : status === "cancelled"
+      ? "#dc2626"
+      : "#f59e0b";
 
-  const statusText = isConfirmed
-    ? "Confirmed"
-    : isCancelled
-    ? "Cancelled"
-    : "Pending confirmation";
-
-  const badgeBg = isConfirmed
-    ? "#16a34a"
-    : isCancelled
-    ? "#dc2626"
-    : "#f59e0b";
-
-  const badgeText = isConfirmed ? "Confirmed ✅" : isCancelled ? "Cancelled ❌" : "Pending ⏳";
-
-  const message = isConfirmed
-    ? "Good news! Your booking has been confirmed."
-    : isCancelled
-    ? "Your booking was cancelled. If you need a new time, please contact us."
-    : "Thank you for your booking! Your booking is pending confirmation. We'll contact you shortly.";
-
-  // Usa o MESMO layout do email bonito (o “pending”),
-  // só muda o badge/textos.
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafb; padding: 20px;">
       <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-        <div style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 30px; text-align: center;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">ClickFob</h1>
-          <p style="color: #bfdbfe; margin: 10px 0 0 0;">${escapeHtml(title)}</p>
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #334155 100%); padding: 24px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">ClickFob</h1>
+          <p style="color: #cbd5e1; margin: 8px 0 0 0;">Booking Status Update</p>
         </div>
 
-        <div style="padding: 30px;">
-          <p style="font-size: 18px; color: #374151;">Hi ${escapeHtml(customerName)},</p>
-          <p style="color: #6b7280;">${escapeHtml(message)}</p>
+        <div style="padding: 28px;">
+          <p style="font-size: 16px; color: #374151;">Hi ${escapeHtml(
+            customerName
+          )},</p>
+          <p style="color: #6b7280; margin-top: 6px;">
+            Your booking status has been updated.
+          </p>
 
-          <div style="background: #eff6ff; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+          <div style="background: #f8fafc; border-radius: 10px; padding: 18px; margin: 18px 0; border-left: 4px solid ${statusColor};">
             <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px;">
-              <h2 style="margin: 0; color: #1e40af; font-size: 20px;">
-                Order #${escapeHtml(orderNumber)}
-              </h2>
-              <span style="display:inline-block; background:${badgeBg}; color:white; padding:8px 12px; border-radius:999px; font-size:12px; font-weight:800; white-space:nowrap;">
-                ${escapeHtml(badgeText)}
-              </span>
+              <div>
+                <div style="color:#0f172a; font-weight:700; font-size:18px;">Order #${escapeHtml(
+                  orderNumber
+                )}</div>
+                <div style="color:#475569; margin-top: 6px;">
+                  ${
+                    serviceName
+                      ? `<div><strong>Service:</strong> ${escapeHtml(
+                          serviceName
+                        )}</div>`
+                      : ""
+                  }
+                  ${
+                    bookingDate
+                      ? `<div><strong>Date:</strong> ${escapeHtml(
+                          bookingDate
+                        )}</div>`
+                      : ""
+                  }
+                  ${
+                    bookingTime
+                      ? `<div><strong>Time:</strong> ${escapeHtml(
+                          bookingTime
+                        )}</div>`
+                      : ""
+                  }
+                </div>
+              </div>
+              <div style="padding:10px 12px; border-radius:999px; background:${statusColor}; color:white; font-weight:700; white-space:nowrap;">
+                ${statusLabel}
+              </div>
             </div>
-
-            <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
-              ${
-                serviceName
-                  ? `<tr>
-                      <td style="padding: 8px 0; color: #6b7280;">Service:</td>
-                      <td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(serviceName)}</td>
-                    </tr>`
-                  : ""
-              }
-              ${
-                bookingDate
-                  ? `<tr>
-                      <td style="padding: 8px 0; color: #6b7280;">Date:</td>
-                      <td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(bookingDate)}</td>
-                    </tr>`
-                  : ""
-              }
-              ${
-                bookingTime
-                  ? `<tr>
-                      <td style="padding: 8px 0; color: #6b7280;">Time:</td>
-                      <td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(bookingTime)}</td>
-                    </tr>`
-                  : ""
-              }
-              <tr>
-                <td style="padding: 8px 0; color: #6b7280;">Status:</td>
-                <td style="padding: 8px 0; color: #374151; font-weight: 700;">${escapeHtml(
-                  statusText
-                )}</td>
-              </tr>
-            </table>
           </div>
 
-          ${
-            isPending
-              ? `
-            <div style="background: #fef3c7; border-radius: 8px; padding: 15px; margin: 20px 0;">
-              <p style="margin: 0; color: #92400e; font-size: 14px;">⏳ Your booking is pending confirmation. We'll contact you shortly to confirm.</p>
-            </div>
-          `
-              : isCancelled
-              ? `
-            <div style="background: #fee2e2; border-radius: 8px; padding: 15px; margin: 20px 0;">
-              <p style="margin: 0; color: #991b1b; font-size: 14px;">❌ This booking was cancelled. If you'd like to rebook, please contact us.</p>
-            </div>
-          `
-              : `
-            <div style="background: #dcfce7; border-radius: 8px; padding: 15px; margin: 20px 0;">
-              <p style="margin: 0; color: #166534; font-size: 14px;">✅ Your booking is confirmed. See you soon!</p>
-            </div>
-          `
-          }
-
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${escapeAttr(manageUrl)}" style="display: inline-block; background: #3b82f6; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 5px;">
+          <div style="text-align: center; margin: 22px 0 6px;">
+            <a href="${manageUrl}" style="display: inline-block; background: #3b82f6; color: white; padding: 12px 22px; border-radius: 10px; text-decoration: none; font-weight: 700;">
               View Booking
             </a>
-            <a href="https://wa.me/14167707036" style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 5px;">
-              Contact Us on WhatsApp
+          </div>
+
+          <div style="text-align:center; margin-top: 10px;">
+            <a href="https://wa.me/14167707036" style="color:#16a34a; text-decoration:none; font-weight:700;">
+              Contact us on WhatsApp
             </a>
           </div>
         </div>
 
-        <div style="background: #f3f4f6; padding: 20px; text-align: center;">
+        <div style="background: #f3f4f6; padding: 16px; text-align: center;">
           <p style="margin: 0; color: #6b7280; font-size: 12px;">You are receiving this message from clickfob.onrender.com</p>
         </div>
       </div>
