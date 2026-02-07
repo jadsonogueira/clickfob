@@ -58,6 +58,17 @@ function getCookieValue(cookieHeader: string | null, name: string) {
   return found.slice(name.length + 1);
 }
 
+// ✅ aceita cookie simples (igual à env) OU token assinado (modelo novo)
+function isAdminAuthorized(cookieHeader: string | null) {
+  const token = getCookieValue(cookieHeader, ADMIN_COOKIE_NAME);
+  const expected = String(process.env.ADMIN_DASHBOARD_KEY || "").trim();
+
+  if (expected && token && token === expected) return true;
+  if (verifyAdminSessionToken(token).ok) return true;
+
+  return false;
+}
+
 function normalizeOrderNumber(input: string) {
   return String(input || "").trim().toUpperCase();
 }
@@ -89,7 +100,6 @@ async function updateBookingAndNotify({
 
   const newStatus = action === "confirm" ? "confirmed" : "cancelled";
 
-  // Se já está no status, não refaz
   if (booking.status === newStatus) {
     return {
       ok: true as const,
@@ -172,7 +182,6 @@ export async function GET(request: Request) {
       });
     }
 
-    // token bate com order/action?
     if (verified.orderNumber !== order || verified.action !== action) {
       return new NextResponse(htmlPage("Action denied", "Token does not match request."), {
         status: 403,
@@ -180,10 +189,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const result = await updateBookingAndNotify({
-      order,
-      action,
-    });
+    const result = await updateBookingAndNotify({ order, action });
 
     if (!result.ok) {
       return new NextResponse(htmlPage("Not found", result.error), {
@@ -226,18 +232,16 @@ export async function GET(request: Request) {
 }
 
 /**
- * MODO 2: POST via área de admin (cookie assinado)
+ * MODO 2: POST via área de admin (cookie)
  * /api/admin/booking-action?order=XXX&action=confirm|cancel
  * => retorna JSON
  */
 export async function POST(request: Request) {
   try {
-    // Auth via cookie (admin dashboard session)
     const cookieHeader = request.headers.get("cookie");
-    const sessionToken = getCookieValue(cookieHeader, ADMIN_COOKIE_NAME);
 
-    const sessionOk = verifyAdminSessionToken(sessionToken).ok;
-    if (!sessionOk) {
+    // ✅ aqui foi a correção: aceitar cookie simples OU token assinado
+    if (!isAdminAuthorized(cookieHeader)) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
@@ -252,10 +256,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await updateBookingAndNotify({
-      order,
-      action,
-    });
+    const result = await updateBookingAndNotify({ order, action });
 
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
