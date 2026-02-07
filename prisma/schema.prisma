@@ -38,10 +38,15 @@ model Booking {
 }
 
 //
-// ✅ Catálogo de serviços (novo)
+// ✅ Catálogo de serviços (Mongo correto)
+// - _id é ObjectId (obrigatório pro Prisma/Mongo)
+// - serviceId guarda "fob-lf", "fob-hf", etc.
+// - enabled mantém seu recurso de “desativar serviço”
 //
 model ServiceCatalog {
-  id        String   @id          // ex: "fob-lf", "fob-hf", "garage-remote"
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  serviceId String   @unique @map("service_id") // "fob-lf", "fob-hf", "garage-remote"
   name      String
   price     Float
   enabled   Boolean  @default(true)
