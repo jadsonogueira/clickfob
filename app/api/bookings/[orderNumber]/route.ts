@@ -35,6 +35,8 @@ export async function GET(
         orderNumber: booking.orderNumber,
         serviceType: booking.serviceType,
         servicePrice: booking.servicePrice,
+        items: (booking as any).items || null,
+        totalPrice: (booking as any).totalPrice || null,
         bookingDate: booking.bookingDate,
         bookingTime: booking.bookingTime,
         customerName: booking.customerName,

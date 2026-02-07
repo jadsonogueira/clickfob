@@ -100,6 +100,7 @@ export function generateCustomerConfirmationEmail({
   customerName,
   customerAddress,
   manageUrl,
+  items,
 }: {
   orderNumber: string;
   serviceName: string;
@@ -109,6 +110,12 @@ export function generateCustomerConfirmationEmail({
   customerName: string;
   customerAddress: string;
   manageUrl: string;
+  items?: Array<{
+    serviceName?: string;
+    label?: string;
+    unitPrice?: number;
+    quantity?: number;
+  }>;
 }): string {
   let origin = "";
   try {
@@ -118,6 +125,28 @@ export function generateCustomerConfirmationEmail({
   }
   const termsUrl = origin ? `${origin}/terms?lang=en` : "";
   const privacyUrl = origin ? `${origin}/privacy?lang=en` : "";
+
+  const hasItems = Array.isArray(items) && items.length > 0;
+  const itemsHtml = hasItems
+    ? `
+      <div style="margin: 10px 0 0 0;">
+        <p style="margin: 0 0 8px 0; color:#6b7280; font-size: 13px;"><strong>Items</strong></p>
+        <table style="width:100%; border-collapse: collapse; font-size: 13px;">
+          ${items
+            .map((it) => {
+              const name = escapeHtml(String(it?.label || it?.serviceName || "Item"));
+              const qty = Math.max(1, Number(it?.quantity || 1));
+              const unit = Number(it?.unitPrice || 0);
+              return `<tr>
+                <td style="padding: 6px 0; color:#374151;">${name} × ${qty}</td>
+                <td style="padding: 6px 0; color:#374151; text-align:right; font-weight:600;">$${(unit * qty).toFixed(2)}</td>
+              </tr>`;
+            })
+            .join("")}
+        </table>
+      </div>
+    `
+    : "";
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafb; padding: 20px;">
       <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -140,6 +169,7 @@ export function generateCustomerConfirmationEmail({
               <tr><td style="padding: 8px 0; color: #6b7280;">Service:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
                 serviceName
               )}</td></tr>
+              <tr><td colspan="2">${itemsHtml}</td></tr>
               <tr><td style="padding: 8px 0; color: #6b7280;">Date:</td><td style="padding: 8px 0; color: #374151; font-weight: 600;">${escapeHtml(
                 bookingDate
               )}</td></tr>
@@ -208,6 +238,7 @@ export function generateAdminNotificationEmail({
   cancelUrl,
   manageUrl,
   adminActionHtml,
+  items,
 }: {
   orderNumber: string;
   serviceName: string;
@@ -226,6 +257,14 @@ export function generateAdminNotificationEmail({
   cancelUrl?: string;
   manageUrl?: string;
   adminActionHtml?: string;
+  items?: Array<{
+    serviceName?: string;
+    label?: string;
+    unitPrice?: number;
+    quantity?: number;
+    photoFrontUrl?: string;
+    photoBackUrl?: string;
+  }>;
 }): string {
   let origin = "";
   try {
@@ -259,6 +298,28 @@ export function generateAdminNotificationEmail({
       `
       : "");
 
+  const hasItems = Array.isArray(items) && items.length > 0;
+  const itemsSectionHtml = hasItems
+    ? `
+        <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Items</h3>
+        <table style="width: 100%; border-collapse: collapse; margin: 10px 0 20px 0;">
+          ${items
+            .map((it, idx) => {
+              const name = escapeHtml(String(it?.label || it?.serviceName || `Item ${idx + 1}`));
+              const qty = Math.max(1, Number(it?.quantity || 1));
+              const unit = Number(it?.unitPrice || 0);
+              const f = it?.photoFrontUrl ? ` — <a href="${it.photoFrontUrl}" style="color:#2563eb; text-decoration:none;">Front</a>` : "";
+              const b = it?.photoBackUrl ? ` <a href="${it.photoBackUrl}" style="color:#2563eb; text-decoration:none;">Back</a>` : "";
+              return `<tr>
+                <td style="padding: 6px 0; color: #374151;">${name} × ${qty}${f}${b}</td>
+                <td style="padding: 6px 0; color: #374151; font-weight:600; text-align:right;">$${(unit * qty).toFixed(2)}</td>
+              </tr>`;
+            })
+            .join("")}
+        </table>
+      `
+    : "";
+
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f9fafb; padding: 20px;">
       <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
@@ -288,6 +349,8 @@ export function generateAdminNotificationEmail({
               bookingTime
             )}</td></tr>
           </table>
+
+          ${itemsSectionHtml}
 
           <h3 style="color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Customer Information</h3>
           <div style="background:#f3f4f6; border-radius: 8px; padding: 12px; margin: 12px 0 18px 0;">

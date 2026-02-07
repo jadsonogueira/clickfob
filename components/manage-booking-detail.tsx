@@ -20,6 +20,16 @@ interface Booking {
   orderNumber: string;
   serviceType: string;
   servicePrice: number;
+  items?: Array<{
+    serviceId?: string;
+    serviceName?: string;
+    unitPrice?: number;
+    quantity?: number;
+    label?: string;
+    photoFrontUrl?: string;
+    photoBackUrl?: string;
+  }> | null;
+  totalPrice?: number | null;
   bookingDate: string;
   bookingTime: string;
   customerName: string;
@@ -155,6 +165,17 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
   const frontUrl = useMemo(() => normalizeImageUrl(booking?.photoFrontUrl), [booking?.photoFrontUrl, normalizeImageUrl]);
   const backUrl = useMemo(() => normalizeImageUrl(booking?.photoBackUrl), [booking?.photoBackUrl, normalizeImageUrl]);
 
+  const hasItems = Array.isArray(booking?.items) && (booking?.items?.length || 0) > 0;
+  const computedTotal = useMemo(() => {
+    if (typeof booking?.totalPrice === "number") return booking.totalPrice;
+    if (!hasItems) return booking?.servicePrice || 0;
+    return (booking?.items || []).reduce((sum, it) => {
+      const unit = Number(it?.unitPrice || 0);
+      const qty = Math.max(1, Number(it?.quantity || 1));
+      return sum + unit * qty;
+    }, 0);
+  }, [booking?.totalPrice, booking?.servicePrice, booking?.items, hasItems]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -211,18 +232,37 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
 
           {/* Content */}
           <div className="p-6 space-y-6">
-            {/* Service Info */}
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-              <div>
-                <p className="text-sm text-gray-500">Service</p>
-                <p className="font-semibold text-gray-900">{booking?.serviceType}</p>
+            {/* Service / Items Info */}
+            <div className="p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Service</p>
+                  <p className="font-semibold text-gray-900">{booking?.serviceType}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-500">Total</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    ${((booking?.totalPrice ?? booking?.servicePrice) || 0).toFixed?.(2) || "0.00"}
+                  </p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-gray-500">Total</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  ${booking?.servicePrice?.toFixed?.(2) || "0.00"}
-                </p>
-              </div>
+
+              {Array.isArray(booking?.items) && booking.items.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                  <p className="text-sm text-gray-500">Items</p>
+                  {booking.items.map((it, idx) => {
+                    const name = it?.label || it?.serviceName || `Item ${idx + 1}`;
+                    const qty = Math.max(1, Number(it?.quantity || 1));
+                    const unit = Number(it?.unitPrice || 0);
+                    return (
+                      <div key={`${idx}_${name}`} className="flex items-center justify-between text-sm">
+                        <div className="text-gray-800">{name} × {qty}</div>
+                        <div className="font-semibold text-gray-900">${(unit * qty).toFixed(2)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Date & Time */}
@@ -266,47 +306,103 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
                 <p className="font-medium text-gray-900">Uploaded Photos</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                {/* Front */}
-                <div>
-                  <p className="text-sm text-gray-500 mb-2">Front</p>
+              {Array.isArray(booking?.items) && booking.items.length > 0 ? (
+                <div className="space-y-4">
+                  {booking.items.map((it, idx) => {
+                    const name = it?.label || it?.serviceName || `Item ${idx + 1}`;
+                    const f = normalizeImageUrl(it?.photoFrontUrl);
+                    const b = normalizeImageUrl(it?.photoBackUrl);
+                    return (
+                      <div key={`${idx}_${name}`} className="bg-white rounded-xl border border-gray-200 p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="font-semibold text-gray-900">{name}</div>
+                          <div className="text-sm text-gray-600">
+                            × {Math.max(1, Number(it?.quantity || 1))}
+                          </div>
+                        </div>
 
-                  {frontUrl ? (
-                    <a
-                      href={frontUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block aspect-video bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
-                    >
-                      <img src={frontUrl} alt="Front photo" className="w-full h-full object-cover" />
-                    </a>
-                  ) : (
-                    <div className="block aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center text-gray-500 text-sm">
-                      No image
-                    </div>
-                  )}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500 mb-2">Front</p>
+                            {f ? (
+                              <a
+                                href={f}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block aspect-video bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                              >
+                                <img src={f} alt="Front photo" className="w-full h-full object-cover" />
+                              </a>
+                            ) : (
+                              <div className="block aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center text-gray-500 text-sm">
+                                No image
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="text-sm text-gray-500 mb-2">Back</p>
+                            {b ? (
+                              <a
+                                href={b}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block aspect-video bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                              >
+                                <img src={b} alt="Back photo" className="w-full h-full object-cover" />
+                              </a>
+                            ) : (
+                              <div className="block aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center text-gray-500 text-sm">
+                                No image
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Front */}
+                  <div>
+                    <p className="text-sm text-gray-500 mb-2">Front</p>
+                    {frontUrl ? (
+                      <a
+                        href={frontUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block aspect-video bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                      >
+                        <img src={frontUrl} alt="Front photo" className="w-full h-full object-cover" />
+                      </a>
+                    ) : (
+                      <div className="block aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center text-gray-500 text-sm">
+                        No image
+                      </div>
+                    )}
+                  </div>
 
-                {/* Back */}
-                <div>
-                  <p className="text-sm text-gray-500 mb-2">Back</p>
-
-                  {backUrl ? (
-                    <a
-                      href={backUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block aspect-video bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
-                    >
-                      <img src={backUrl} alt="Back photo" className="w-full h-full object-cover" />
-                    </a>
-                  ) : (
-                    <div className="block aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center text-gray-500 text-sm">
-                      No image
-                    </div>
-                  )}
+                  {/* Back */}
+                  <div>
+                    <p className="text-sm text-gray-500 mb-2">Back</p>
+                    {backUrl ? (
+                      <a
+                        href={backUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block aspect-video bg-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                      >
+                        <img src={backUrl} alt="Back photo" className="w-full h-full object-cover" />
+                      </a>
+                    ) : (
+                      <div className="block aspect-video bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center text-gray-500 text-sm">
+                        No image
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Actions */}

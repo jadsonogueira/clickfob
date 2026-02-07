@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   Key,
@@ -10,12 +10,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
-  Upload,
   Calendar,
   User,
   Loader2,
   Camera,
   AlertCircle,
+  Trash2,
+  Plus,
+  Minus,
 } from "lucide-react";
 
 const services = [
@@ -32,19 +34,26 @@ const timeSlots = [
 ];
 
 const steps = [
-  { id: 1, name: "Service", icon: Key },
+  { id: 1, name: "Items", icon: Key },
   { id: 2, name: "Photos", icon: Camera },
   { id: 3, name: "Date & Time", icon: Calendar },
   { id: 4, name: "Details", icon: User },
   { id: 5, name: "Confirm", icon: Check },
 ];
 
-interface BookingData {
+type BookingItem = {
+  id: string;
   serviceId: string;
+  label: string;
+  quantity: number;
   photoFront: File | null;
   photoBack: File | null;
   photoFrontPreview: string;
   photoBackPreview: string;
+};
+
+type BookingData = {
+  items: BookingItem[];
   selectedDate: string;
   selectedTime: string;
   customerName: string;
@@ -53,19 +62,33 @@ interface BookingData {
   customerEmail: string;
   customerWhatsapp: string;
   additionalNotes: string;
+};
+
+function makeId() {
+  try {
+    // modern browsers
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cryptoAny: any = globalThis.crypto;
+    if (cryptoAny?.randomUUID) return cryptoAny.randomUUID();
+  } catch {
+    // ignore
+  }
+  return `itm_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
 export default function BookingFlow() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const initialService = searchParams?.get("service") || "";
-  const lang = (searchParams?.get("lang") || "en").toLowerCase() === "fr" ? "fr" : "en";
+  const lang =
+    (searchParams?.get("lang") || "en").toLowerCase() === "fr" ? "fr" : "en";
   const isFR = lang === "fr";
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [authorizationAccepted, setAuthorizationAccepted] = useState(false);
 
   const text = isFR
     ? {
@@ -73,6 +96,26 @@ export default function BookingFlow() {
         continue: "Continuer",
         confirm: "Confirmer la réservation",
         processing: "Traitement...",
+        itemsTitle: "Articles à copier",
+        itemsSubtitle:
+          "Ajoutez un ou plusieurs types. Une seule série de photos par type, même si vous demandez plusieurs copies.",
+        addItem: "Ajouter un autre type",
+        removeItem: "Supprimer",
+        label: "Étiquette (optionnel)",
+        labelPh: "ex : Porte d'entrée, Garage, Ascenseur",
+        service: "Service",
+        quantity: "Quantité",
+        photosTitle: "Téléverser des photos",
+        photosSubtitle:
+          "Pour chaque article, téléversez des photos claires du recto et du verso.",
+        front: "Recto",
+        backSide: "Verso",
+        change: "Changer",
+        required: "Requis",
+        selectService: "Choisissez un service",
+        dateTitle: "Date et heure",
+        detailsTitle: "Vos informations",
+        confirmTitle: "Confirmer",
         authLabel:
           "Je confirme être un utilisateur autorisé de ce porte-clés et comprendre que la duplication est soumise à la compatibilité technique.",
         authHint:
@@ -80,12 +123,34 @@ export default function BookingFlow() {
         terms: "Conditions d’utilisation",
         privacy: "Politique de confidentialité",
         mustAccept: "Veuillez confirmer l’autorisation avant de finaliser.",
+        missingItems: "Ajoutez au moins un article et sélectionnez un service.",
+        missingPhotos: "Chaque article doit avoir une photo recto et verso.",
       }
     : {
         back: "Back",
         continue: "Continue",
         confirm: "Confirm Booking",
         processing: "Processing...",
+        itemsTitle: "Items to copy",
+        itemsSubtitle:
+          "Add one or more item types. One set of photos per type, even if you request multiple copies.",
+        addItem: "Add another fob type",
+        removeItem: "Remove",
+        label: "Label (optional)",
+        labelPh: "e.g., Front Door, Garage, Elevator",
+        service: "Service",
+        quantity: "Quantity",
+        photosTitle: "Upload Photos",
+        photosSubtitle:
+          "For each item, upload clear photos of the front and back.",
+        front: "Front",
+        backSide: "Back",
+        change: "Change",
+        required: "Required",
+        selectService: "Select a service",
+        dateTitle: "Date & Time",
+        detailsTitle: "Your Details",
+        confirmTitle: "Confirm",
         authLabel:
           "I confirm that I am an authorized user of this key fob and understand that duplication is subject to technical compatibility.",
         authHint:
@@ -93,42 +158,42 @@ export default function BookingFlow() {
         terms: "Terms & Conditions",
         privacy: "Privacy Policy",
         mustAccept: "Please confirm authorization before submitting.",
+        missingItems: "Add at least one item and select a service.",
+        missingPhotos: "Each item must have a front and back photo.",
       };
 
-  const [authorizationAccepted, setAuthorizationAccepted] = useState(false);
+  const [bookingData, setBookingData] = useState<BookingData>(() => {
+    const firstItem: BookingItem = {
+      id: makeId(),
+      serviceId: initialService,
+      label: "",
+      quantity: 1,
+      photoFront: null,
+      photoBack: null,
+      photoFrontPreview: "",
+      photoBackPreview: "",
+    };
 
-  const [bookingData, setBookingData] = useState<BookingData>({
-    serviceId: initialService,
-    photoFront: null,
-    photoBack: null,
-    photoFrontPreview: "",
-    photoBackPreview: "",
-    selectedDate: "",
-    selectedTime: "",
-    customerName: "",
-    customerAddress: "",
-    customerUnit: "",
-    customerEmail: "",
-    customerWhatsapp: "",
-    additionalNotes: "",
+    return {
+      items: [firstItem],
+      selectedDate: "",
+      selectedTime: "",
+      customerName: "",
+      customerAddress: "",
+      customerUnit: "",
+      customerEmail: "",
+      customerWhatsapp: "",
+      additionalNotes: "",
+    };
   });
 
-  const selectedService = services.find((s) => s.id === bookingData.serviceId);
-
-  // ✅ Normaliza URL/Path (evita prefixar site em URL absoluta)
-  const normalizeImageUrl = (input?: string | null) => {
-    if (!input) return "";
-    const value = String(input).trim();
-
-    if (value.startsWith("http://") || value.startsWith("https://")) return value;
-    if (value.startsWith("/http://") || value.startsWith("/https://")) return value.slice(1);
-
-    // Preview local (dataURL)
-    if (value.startsWith("data:image/")) return value;
-
-    // fallback: path relativo
-    return `/${value.replace(/^\/+/, "")}`;
-  };
+  const itemsTotal = useMemo(() => {
+    return bookingData.items.reduce((sum, item) => {
+      const svc = services.find((s) => s.id === item.serviceId);
+      const unit = svc?.price ?? 0;
+      return sum + unit * Math.max(1, item.quantity || 1);
+    }, 0);
+  }, [bookingData.items]);
 
   const fetchBookedSlots = useCallback(async (date: string) => {
     try {
@@ -146,22 +211,53 @@ export default function BookingFlow() {
     }
   }, [bookingData.selectedDate, fetchBookedSlots]);
 
-  const handleFileChange = (type: "front" | "back", file: File | null) => {
+  const updateItem = (id: string, patch: Partial<BookingItem>) => {
+    setBookingData((prev) => ({
+      ...prev,
+      items: prev.items.map((it) => (it.id === id ? { ...it, ...patch } : it)),
+    }));
+  };
+
+  const addItem = () => {
+    setBookingData((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          id: makeId(),
+          serviceId: "",
+          label: "",
+          quantity: 1,
+          photoFront: null,
+          photoBack: null,
+          photoFrontPreview: "",
+          photoBackPreview: "",
+        },
+      ],
+    }));
+  };
+
+  const removeItem = (id: string) => {
+    setBookingData((prev) => {
+      const next = prev.items.filter((it) => it.id !== id);
+      return { ...prev, items: next.length ? next : prev.items };
+    });
+  };
+
+  const handleFileChange = (itemId: string, side: "front" | "back", file: File | null) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
-      if (type === "front") {
-        setBookingData((prev) => ({
-          ...prev,
+      if (side === "front") {
+        updateItem(itemId, {
           photoFront: file,
           photoFrontPreview: reader.result as string,
-        }));
+        });
       } else {
-        setBookingData((prev) => ({
-          ...prev,
+        updateItem(itemId, {
           photoBack: file,
           photoBackPreview: reader.result as string,
-        }));
+        });
       }
     };
     reader.readAsDataURL(file);
@@ -170,32 +266,37 @@ export default function BookingFlow() {
   const validateStep = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (currentStep === 1 && !bookingData.serviceId) {
-      newErrors.service = "Please select a service";
+    if (currentStep === 1) {
+      const hasAtLeastOne = bookingData.items.length > 0;
+      const allHaveService = bookingData.items.every((it) => !!it.serviceId);
+      const allQtyValid = bookingData.items.every((it) => (it.quantity || 0) >= 1);
+      if (!hasAtLeastOne || !allHaveService || !allQtyValid) {
+        newErrors.items = text.missingItems;
+      }
     }
 
     if (currentStep === 2) {
-      if (!bookingData.photoFront) newErrors.photoFront = "Front photo is required";
-      if (!bookingData.photoBack) newErrors.photoBack = "Back photo is required";
+      const allHavePhotos = bookingData.items.every((it) => !!it.photoFront && !!it.photoBack);
+      if (!allHavePhotos) newErrors.photos = text.missingPhotos;
     }
 
     if (currentStep === 3) {
-      if (!bookingData.selectedDate) newErrors.date = "Please select a date";
-      if (!bookingData.selectedTime) newErrors.time = "Please select a time slot";
+      if (!bookingData.selectedDate) newErrors.date = isFR ? "Veuillez choisir une date" : "Please select a date";
+      if (!bookingData.selectedTime) newErrors.time = isFR ? "Veuillez choisir une plage horaire" : "Please select a time slot";
     }
 
     if (currentStep === 4) {
-      if (!bookingData.customerName?.trim()) newErrors.name = "Name is required";
-      if (!bookingData.customerAddress?.trim()) newErrors.address = "Address is required";
+      if (!bookingData.customerName?.trim()) newErrors.name = isFR ? "Le nom est requis" : "Name is required";
+      if (!bookingData.customerAddress?.trim()) newErrors.address = isFR ? "L’adresse est requise" : "Address is required";
       if (!bookingData.customerEmail?.trim()) {
-        newErrors.email = "Email is required";
+        newErrors.email = isFR ? "L’email est requis" : "Email is required";
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookingData.customerEmail)) {
-        newErrors.email = "Invalid email format";
+        newErrors.email = isFR ? "Format d’email invalide" : "Invalid email format";
       }
       if (!bookingData.customerWhatsapp?.trim()) {
-        newErrors.whatsapp = "WhatsApp number is required";
+        newErrors.whatsapp = isFR ? "Le numéro WhatsApp est requis" : "WhatsApp number is required";
       } else if (!/^[+]?[0-9\s()-]{10,}$/.test(bookingData.customerWhatsapp?.replace(/\s/g, ""))) {
-        newErrors.whatsapp = "Invalid phone number";
+        newErrors.whatsapp = isFR ? "Numéro invalide" : "Invalid phone number";
       }
     }
 
@@ -204,77 +305,17 @@ export default function BookingFlow() {
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors)?.length === 0;
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleNext = () => {
     if (validateStep()) {
-      // When leaving Confirm step in the future, keep as-is.
       setCurrentStep((prev) => Math.min(prev + 1, 5));
     }
   };
 
   const handleBack = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
-  };
-
-  const handleSubmit = async () => {
-    if (!authorizationAccepted) {
-      setErrors((prev) => ({
-        ...prev,
-        authorization: text.mustAccept,
-      }));
-      return;
-    }
-    setIsLoading(true);
-    try {
-      // Upload photos first
-      const formData = new FormData();
-      if (bookingData.photoFront) formData.append("front", bookingData.photoFront);
-      if (bookingData.photoBack) formData.append("back", bookingData.photoBack);
-
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const uploadData = await uploadRes.json();
-
-      if (!uploadData?.success) {
-        throw new Error(uploadData?.error || "Failed to upload photos");
-      }
-
-      // Create booking
-      const bookingRes = await fetch("/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          serviceId: bookingData.serviceId,
-          bookingDate: bookingData.selectedDate,
-          bookingTime: bookingData.selectedTime,
-          customerName: bookingData.customerName,
-          customerAddress: bookingData.customerAddress,
-          customerUnit: bookingData.customerUnit,
-          customerEmail: bookingData.customerEmail,
-          customerWhatsapp: bookingData.customerWhatsapp,
-          additionalNotes: bookingData.additionalNotes,
-          photoFrontPath: uploadData.frontPath,
-          photoBackPath: uploadData.backPath,
-        }),
-      });
-
-      const bookingResult = await bookingRes.json();
-
-      if (bookingResult?.success) {
-        router.push(`/booking-success?order=${bookingResult.orderNumber}&lang=${lang}`);
-      } else {
-        throw new Error(bookingResult?.error || "Failed to create booking");
-      }
-    } catch (error) {
-      console.error("Booking error:", error);
-      setErrors({ submit: "Failed to complete booking. Please try again." });
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const getDateMin = () => {
@@ -299,6 +340,89 @@ export default function BookingFlow() {
     });
   };
 
+  const handleSubmit = async () => {
+    if (!authorizationAccepted) {
+      setErrors((prev) => ({ ...prev, authorization: text.mustAccept }));
+      return;
+    }
+
+    if (!validateStep()) return;
+
+    setIsLoading(true);
+    setErrors({});
+
+    try {
+      // 1) Upload photos per item (reuse existing /api/upload)
+      const uploadedItems = [] as Array<{
+        serviceId: string;
+        serviceName: string;
+        unitPrice: number;
+        quantity: number;
+        label?: string;
+        photoFrontUrl: string;
+        photoBackUrl: string;
+      }>;
+
+      for (const item of bookingData.items) {
+        const svc = services.find((s) => s.id === item.serviceId);
+        if (!svc) throw new Error("Invalid service in items");
+        if (!item.photoFront || !item.photoBack) throw new Error("Missing photos");
+
+        const formData = new FormData();
+        formData.append("front", item.photoFront);
+        formData.append("back", item.photoBack);
+
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const uploadData = await uploadRes.json();
+        if (!uploadData?.success) {
+          throw new Error(uploadData?.error || "Failed to upload photos");
+        }
+
+        uploadedItems.push({
+          serviceId: item.serviceId,
+          serviceName: svc.name,
+          unitPrice: svc.price,
+          quantity: Math.max(1, item.quantity || 1),
+          label: item.label?.trim() || undefined,
+          photoFrontUrl: uploadData.frontPath,
+          photoBackUrl: uploadData.backPath,
+        });
+      }
+
+      // 2) Create booking with items[]
+      const bookingRes = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: uploadedItems,
+          bookingDate: bookingData.selectedDate,
+          bookingTime: bookingData.selectedTime,
+          customerName: bookingData.customerName,
+          customerAddress: bookingData.customerAddress,
+          customerUnit: bookingData.customerUnit,
+          customerEmail: bookingData.customerEmail,
+          customerWhatsapp: bookingData.customerWhatsapp,
+          additionalNotes: bookingData.additionalNotes,
+        }),
+      });
+
+      const bookingResult = await bookingRes.json();
+      if (bookingResult?.success) {
+        router.push(`/booking-success?order=${bookingResult.orderNumber}&lang=${lang}`);
+      } else {
+        throw new Error(bookingResult?.error || "Failed to create booking");
+      }
+    } catch (error) {
+      console.error("Booking error:", error);
+      setErrors({ submit: isFR ? "Échec de la réservation. Réessayez." : "Failed to complete booking. Please try again." });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div>
       {/* Progress Steps */}
@@ -315,7 +439,7 @@ export default function BookingFlow() {
               >
                 {currentStep > step.id ? <Check size={18} /> : <step.icon size={18} />}
               </div>
-              {index < steps?.length - 1 && (
+              {index < steps.length - 1 && (
                 <div
                   className={`hidden sm:block w-16 lg:w-24 h-1 mx-2 ${
                     currentStep > step.id ? "bg-blue-600" : "bg-gray-200"
@@ -341,530 +465,548 @@ export default function BookingFlow() {
 
       {/* Step Content */}
       <div className="bg-white rounded-2xl shadow-lg p-6 lg:p-8">
-        {/* Step 1: Service Selection */}
+        {/* Step 1: Items */}
         {currentStep === 1 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Select Your Service</h2>
-            <p className="text-gray-600 mb-6">Choose the service you need</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.itemsTitle}</h2>
+            <p className="text-gray-600 mb-6">{text.itemsSubtitle}</p>
 
             <div className="space-y-4">
-              {services.map((service) => (
-                <button
-                  key={service.id}
-                  type="button"
-                  onClick={() => setBookingData((prev) => ({ ...prev, serviceId: service.id }))}
-                  className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
-                    bookingData.serviceId === service.id
-                      ? "border-blue-600 bg-blue-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`p-3 rounded-xl ${
-                        bookingData.serviceId === service.id
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      <service.icon size={24} />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900">{service.name}</h3>
-                      <p className="text-lg font-bold text-blue-600">${service.price}.00</p>
-                    </div>
-                    {bookingData.serviceId === service.id && (
-                      <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
-                        <Check size={16} className="text-white" />
+              {bookingData.items.map((item, idx) => {
+                const svc = services.find((s) => s.id === item.serviceId);
+                return (
+                  <div key={item.id} className="border border-gray-200 rounded-xl p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <div className="text-sm font-semibold text-gray-800">
+                        {isFR ? `Article ${idx + 1}` : `Item ${idx + 1}`}
                       </div>
-                    )}
+                      {bookingData.items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeItem(item.id)}
+                          className="inline-flex items-center gap-1 text-sm text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 size={16} /> {text.removeItem}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-3">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {text.service} <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={item.serviceId}
+                          onChange={(e) => updateItem(item.id, { serviceId: e.target.value })}
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">{text.selectService}</option>
+                          {services.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} — ${s.price}
+                            </option>
+                          ))}
+                        </select>
+                        {svc && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {isFR ? "Prix unitaire" : "Unit price"}: <strong>${svc.price.toFixed(2)}</strong>
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {text.quantity} <span className="text-red-500">*</span>
+                        </label>
+                        <div className="flex items-center justify-between gap-2 border border-gray-300 rounded-xl px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={() => updateItem(item.id, { quantity: Math.max(1, (item.quantity || 1) - 1) })}
+                            className="p-1 rounded-lg hover:bg-gray-100"
+                            aria-label="decrease"
+                          >
+                            <Minus size={18} />
+                          </button>
+                          <div className="text-lg font-semibold text-gray-900">{item.quantity || 1}</div>
+                          <button
+                            type="button"
+                            onClick={() => updateItem(item.id, { quantity: (item.quantity || 1) + 1 })}
+                            className="p-1 rounded-lg hover:bg-gray-100"
+                            aria-label="increase"
+                          >
+                            <Plus size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{text.label}</label>
+                      <input
+                        value={item.label}
+                        onChange={(e) => updateItem(item.id, { label: e.target.value })}
+                        placeholder={text.labelPh}
+                        className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
-            {errors?.service && (
-              <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
-                <AlertCircle size={14} /> {errors.service}
+
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={addItem}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 hover:bg-gray-50 font-medium"
+              >
+                <Plus size={18} /> {text.addItem}
+              </button>
+              <div className="text-right">
+                <div className="text-sm text-gray-500">{isFR ? "Total estimé" : "Estimated total"}</div>
+                <div className="text-xl font-bold text-blue-700">${itemsTotal.toFixed(2)}</div>
+              </div>
+            </div>
+
+            {errors?.items && (
+              <p className="text-red-500 text-sm mt-3 flex items-center gap-1">
+                <AlertCircle size={14} /> {errors.items}
               </p>
             )}
           </div>
         )}
 
-        {/* Step 2: Photo Upload */}
+        {/* Step 2: Photos (per item) */}
         {currentStep === 2 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Upload Photos</h2>
-            <p className="text-gray-600 mb-6">
-              Please upload clear photos of your fob/remote (front and back)
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.photosTitle}</h2>
+            <p className="text-gray-600 mb-6">{text.photosSubtitle}</p>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Front Photo */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Front Photo <span className="text-red-500">*</span>
-                </label>
-                <div
-                  className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all ${
-                    bookingData.photoFrontPreview
-                      ? "border-blue-500 bg-blue-50"
-                      : errors?.photoFront
-                      ? "border-red-300 bg-red-50"
-                      : "border-gray-300 hover:border-gray-400"
-                  }`}
-                >
-                  {bookingData.photoFrontPreview ? (
-                    <div className="relative aspect-video">
-                      <img
-                        src={normalizeImageUrl(bookingData.photoFrontPreview)}
-                        alt="Front preview"
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setBookingData((prev) => ({
-                            ...prev,
-                            photoFront: null,
-                            photoFrontPreview: "",
-                          }))
-                        }
-                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
-                      >
-                        ×
-                      </button>
+            <div className="space-y-4">
+              {bookingData.items.map((item, idx) => {
+                const svc = services.find((s) => s.id === item.serviceId);
+                const title = item.label?.trim() || svc?.name || (isFR ? `Article ${idx + 1}` : `Item ${idx + 1}`);
+                return (
+                  <div key={item.id} className="border border-gray-200 rounded-xl p-4">
+                    <div className="flex items-center justify-between gap-3 mb-4">
+                      <div>
+                        <div className="font-semibold text-gray-900">{title}</div>
+                        <div className="text-xs text-gray-500">
+                          {isFR ? "Copies" : "Copies"}: <strong>{item.quantity || 1}</strong>
+                        </div>
+                      </div>
+                      {svc && (
+                        <div className="text-sm text-blue-700 font-bold">${svc.price.toFixed(2)} ea</div>
+                      )}
                     </div>
-                  ) : (
-                    <label className="cursor-pointer block">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <p className="mt-2 text-sm text-gray-600">Click to upload front photo</p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handleFileChange("front", e.target.files?.[0] || null)}
-                      />
-                    </label>
-                  )}
-                </div>
-                {errors?.photoFront && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                    <AlertCircle size={14} /> {errors.photoFront}
-                  </p>
-                )}
-              </div>
 
-              {/* Back Photo */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Back Photo <span className="text-red-500">*</span>
-                </label>
-                <div
-                  className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all ${
-                    bookingData.photoBackPreview
-                      ? "border-blue-500 bg-blue-50"
-                      : errors?.photoBack
-                      ? "border-red-300 bg-red-50"
-                      : "border-gray-300 hover:border-gray-400"
-                  }`}
-                >
-                  {bookingData.photoBackPreview ? (
-                    <div className="relative aspect-video">
-                      <img
-                        src={normalizeImageUrl(bookingData.photoBackPreview)}
-                        alt="Back preview"
-                        className="w-full h-full object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setBookingData((prev) => ({
-                            ...prev,
-                            photoBack: null,
-                            photoBackPreview: "",
-                          }))
-                        }
-                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
-                      >
-                        ×
-                      </button>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {/* Front */}
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="font-medium text-gray-900">
+                            {text.front} <span className="text-red-500">*</span>
+                          </div>
+                          <div className="text-xs text-gray-500">{text.required}</div>
+                        </div>
+
+                        {item.photoFrontPreview ? (
+                          <div className="space-y-3">
+                            <img
+                              src={item.photoFrontPreview}
+                              alt="front preview"
+                              className="w-full max-h-48 object-contain rounded-lg bg-white"
+                            />
+                            <label className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) =>
+                                  handleFileChange(item.id, "front", e.target.files?.[0] || null)
+                                }
+                              />
+                              {text.change}
+                            </label>
+                          </div>
+                        ) : (
+                          <label className="block border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 bg-white">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) =>
+                                handleFileChange(item.id, "front", e.target.files?.[0] || null)
+                              }
+                            />
+                            <div className="flex flex-col items-center gap-2 text-gray-600">
+                              <Camera size={28} />
+                              <span className="text-sm">{isFR ? "Téléverser une photo" : "Upload photo"}</span>
+                            </div>
+                          </label>
+                        )}
+                      </div>
+
+                      {/* Back */}
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="font-medium text-gray-900">
+                            {text.backSide} <span className="text-red-500">*</span>
+                          </div>
+                          <div className="text-xs text-gray-500">{text.required}</div>
+                        </div>
+
+                        {item.photoBackPreview ? (
+                          <div className="space-y-3">
+                            <img
+                              src={item.photoBackPreview}
+                              alt="back preview"
+                              className="w-full max-h-48 object-contain rounded-lg bg-white"
+                            />
+                            <label className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 cursor-pointer">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) =>
+                                  handleFileChange(item.id, "back", e.target.files?.[0] || null)
+                                }
+                              />
+                              {text.change}
+                            </label>
+                          </div>
+                        ) : (
+                          <label className="block border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 bg-white">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) =>
+                                handleFileChange(item.id, "back", e.target.files?.[0] || null)
+                              }
+                            />
+                            <div className="flex flex-col items-center gap-2 text-gray-600">
+                              <Camera size={28} />
+                              <span className="text-sm">{isFR ? "Téléverser une photo" : "Upload photo"}</span>
+                            </div>
+                          </label>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <label className="cursor-pointer block">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <p className="mt-2 text-sm text-gray-600">Click to upload back photo</p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => handleFileChange("back", e.target.files?.[0] || null)}
-                      />
-                    </label>
-                  )}
-                </div>
-                {errors?.photoBack && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                    <AlertCircle size={14} /> {errors.photoBack}
-                  </p>
-                )}
-              </div>
+                  </div>
+                );
+              })}
             </div>
+
+            {errors?.photos && (
+              <p className="text-red-500 text-sm mt-3 flex items-center gap-1">
+                <AlertCircle size={14} /> {errors.photos}
+              </p>
+            )}
           </div>
         )}
 
         {/* Step 3: Date & Time */}
         {currentStep === 3 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Select Date & Time</h2>
-            <p className="text-gray-600 mb-6">Choose your preferred appointment slot</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.dateTitle}</h2>
+            <p className="text-gray-600 mb-6">
+              {isFR
+                ? "Choisissez une date et une plage horaire."
+                : "Choose a date and a time slot."}
+            </p>
 
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Date <span className="text-red-500">*</span>
+                  {isFR ? "Date" : "Date"}
                 </label>
                 <input
                   type="date"
                   min={getDateMin()}
                   value={bookingData.selectedDate}
                   onChange={(e) => {
-                    const date = e.target.value;
-                    if (isWeekday(date)) {
-                      setBookingData((prev) => ({ ...prev, selectedDate: date, selectedTime: "" }));
+                    const val = e.target.value;
+                    // Basic weekday guard
+                    if (val && !isWeekday(val)) {
+                      setBookingData((prev) => ({ ...prev, selectedDate: val, selectedTime: "" }));
                     } else {
-                      setErrors((prev) => ({ ...prev, date: "Please select Monday to Saturday only" }));
+                      setBookingData((prev) => ({ ...prev, selectedDate: val, selectedTime: "" }));
                     }
                   }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {errors?.date && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                  <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
                     <AlertCircle size={14} /> {errors.date}
                   </p>
                 )}
-                <p className="text-sm text-gray-500 mt-1">Available: Monday to Saturday</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {isFR ? "Plage horaire" : "Time slot"}
+                </label>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {timeSlots.map((slot) => {
+                    const isBooked = bookedSlots.includes(slot.id);
+                    const isSelected = bookingData.selectedTime === slot.id;
+                    return (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        disabled={isBooked}
+                        onClick={() => setBookingData((prev) => ({ ...prev, selectedTime: slot.id }))}
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${
+                          isBooked
+                            ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                            : isSelected
+                            ? "border-blue-600 bg-blue-50"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="font-semibold">{slot.label}</div>
+                        {isBooked && (
+                          <div className="text-xs mt-1">{isFR ? "Réservé" : "Booked"}</div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {errors?.time && (
+                  <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
+                    <AlertCircle size={14} /> {errors.time}
+                  </p>
+                )}
               </div>
 
               {bookingData.selectedDate && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Time Slot <span className="text-red-500">*</span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {timeSlots.map((slot) => {
-                      const isBooked = bookedSlots?.includes?.(slot.id);
-                      return (
-                        <button
-                          key={slot.id}
-                          type="button"
-                          disabled={isBooked}
-                          onClick={() =>
-                            setBookingData((prev) => ({ ...prev, selectedTime: slot.id }))
-                          }
-                          className={`p-4 rounded-xl border-2 transition-all ${
-                            bookingData.selectedTime === slot.id
-                              ? "border-blue-600 bg-blue-50 text-blue-700"
-                              : isBooked
-                              ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                              : "border-gray-200 hover:border-gray-300"
-                          }`}
-                        >
-                          <span className="font-medium">{slot.label}</span>
-                          {isBooked && <span className="block text-xs mt-1">Booked</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {errors?.time && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
-                      <AlertCircle size={14} /> {errors.time}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {bookingData.selectedDate && bookingData.selectedTime && (
-                <div className="bg-blue-50 p-4 rounded-xl">
-                  <p className="text-blue-800 font-medium">
-                    Selected: {formatDate(bookingData.selectedDate)} at{" "}
-                    {timeSlots.find((s) => s.id === bookingData.selectedTime)?.label}
-                  </p>
+                <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl p-4">
+                  <strong>{isFR ? "Sélection" : "Selection"}:</strong> {formatDate(bookingData.selectedDate)}
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Step 4: Customer Details */}
+        {/* Step 4: Details */}
         {currentStep === 4 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Your Information</h2>
-            <p className="text-gray-600 mb-6">Please provide your contact details</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.detailsTitle}</h2>
+            <p className="text-gray-600 mb-6">
+              {isFR
+                ? "Entrez vos informations de contact."
+                : "Enter your contact details."}
+            </p>
 
-            <div className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name <span className="text-red-500">*</span>
+                  {isFR ? "Nom" : "Name"} <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="text"
                   value={bookingData.customerName}
-                  onChange={(e) =>
-                    setBookingData((prev) => ({ ...prev, customerName: e.target.value }))
-                  }
-                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors?.name ? "border-red-300" : "border-gray-300"
-                  }`}
-                  placeholder="John Doe"
+                  onChange={(e) => setBookingData((p) => ({ ...p, customerName: e.target.value }))}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                {errors?.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+                {errors?.name && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} /> {errors.name}
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Complete Address <span className="text-red-500">*</span>
+                  {isFR ? "WhatsApp" : "WhatsApp"} <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="text"
-                  value={bookingData.customerAddress}
-                  onChange={(e) =>
-                    setBookingData((prev) => ({ ...prev, customerAddress: e.target.value }))
-                  }
-                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors?.address ? "border-red-300" : "border-gray-300"
-                  }`}
-                  placeholder="123 Main Street, Toronto, ON"
-                />
-                {errors?.address && <p className="text-red-500 text-sm mt-1">{errors.address}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Unit/Buzzer Number <span className="text-gray-400">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={bookingData.customerUnit}
-                  onChange={(e) =>
-                    setBookingData((prev) => ({ ...prev, customerUnit: e.target.value }))
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Unit 123 / Buzzer 456"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  value={bookingData.customerEmail}
-                  onChange={(e) =>
-                    setBookingData((prev) => ({ ...prev, customerEmail: e.target.value }))
-                  }
-                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors?.email ? "border-red-300" : "border-gray-300"
-                  }`}
-                  placeholder="john@example.com"
-                />
-                {errors?.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  WhatsApp Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
                   value={bookingData.customerWhatsapp}
-                  onChange={(e) =>
-                    setBookingData((prev) => ({ ...prev, customerWhatsapp: e.target.value }))
-                  }
-                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors?.whatsapp ? "border-red-300" : "border-gray-300"
-                  }`}
-                  placeholder="+1 (416) 123-4567"
+                  onChange={(e) => setBookingData((p) => ({ ...p, customerWhatsapp: e.target.value }))}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                {errors?.whatsapp && <p className="text-red-500 text-sm mt-1">{errors.whatsapp}</p>}
+                {errors?.whatsapp && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} /> {errors.whatsapp}
+                  </p>
+                )}
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {isFR ? "Adresse" : "Address"} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={bookingData.customerAddress}
+                  onChange={(e) => setBookingData((p) => ({ ...p, customerAddress: e.target.value }))}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {errors?.address && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} /> {errors.address}
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Additional Notes <span className="text-gray-400">(optional)</span>
+                  {isFR ? "Unité / Interphone" : "Unit / Buzzer"}
+                </label>
+                <input
+                  value={bookingData.customerUnit}
+                  onChange={(e) => setBookingData((p) => ({ ...p, customerUnit: e.target.value }))}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {isFR ? "Email" : "Email"} <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={bookingData.customerEmail}
+                  onChange={(e) => setBookingData((p) => ({ ...p, customerEmail: e.target.value }))}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {errors?.email && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle size={14} /> {errors.email}
+                  </p>
+                )}
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {isFR ? "Notes (optionnel)" : "Additional notes (optional)"}
                 </label>
                 <textarea
                   value={bookingData.additionalNotes}
-                  onChange={(e) =>
-                    setBookingData((prev) => ({ ...prev, additionalNotes: e.target.value }))
-                  }
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Any special instructions or information..."
+                  onChange={(e) => setBookingData((p) => ({ ...p, additionalNotes: e.target.value }))}
+                  rows={4}
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
           </div>
         )}
 
-        {/* Step 5: Confirmation */}
+        {/* Step 5: Confirm */}
         {currentStep === 5 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Confirm Your Booking</h2>
-            <p className="text-gray-600 mb-6">Please review your booking details</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.confirmTitle}</h2>
+            <p className="text-gray-600 mb-6">
+              {isFR
+                ? "Vérifiez les détails et confirmez."
+                : "Review the details and confirm."}
+            </p>
 
             <div className="space-y-4">
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="font-semibold text-gray-700 mb-3">Service</h3>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-900">{selectedService?.name}</span>
-                  <span className="text-xl font-bold text-blue-600">${selectedService?.price}.00</span>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="font-semibold text-gray-700 mb-3">Date & Time</h3>
-                <p className="text-gray-900">{formatDate(bookingData.selectedDate)}</p>
-                <p className="text-gray-600">
-                  {timeSlots.find((s) => s.id === bookingData.selectedTime)?.label}
-                </p>
-              </div>
-
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="font-semibold text-gray-700 mb-3">Contact Information</h3>
-                <div className="space-y-1">
-                  <p className="text-gray-900">{bookingData.customerName}</p>
-                  <p className="text-gray-600">{bookingData.customerAddress}</p>
-                  {bookingData.customerUnit && (
-                    <p className="text-gray-600">Unit/Buzzer: {bookingData.customerUnit}</p>
-                  )}
-                  <p className="text-gray-600">{bookingData.customerEmail}</p>
-                  <p className="text-gray-600">{bookingData.customerWhatsapp}</p>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="font-semibold text-gray-700 mb-3">Uploaded Photos</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Front</p>
-                    {bookingData.photoFrontPreview ? (
-                      <img
-                        src={normalizeImageUrl(bookingData.photoFrontPreview)}
-                        alt="Front"
-                        className="w-full aspect-video object-cover rounded-lg"
-                      />
-                    ) : (
-                      <div className="w-full aspect-video rounded-lg bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
-                        No image
+              <div className="border border-gray-200 rounded-xl p-4">
+                <div className="font-semibold text-gray-900 mb-2">{isFR ? "Résumé" : "Summary"}</div>
+                <div className="space-y-2">
+                  {bookingData.items.map((it) => {
+                    const svc = services.find((s) => s.id === it.serviceId);
+                    const name = it.label?.trim() || svc?.name || it.serviceId;
+                    const unit = svc?.price ?? 0;
+                    const qty = Math.max(1, it.quantity || 1);
+                    return (
+                      <div key={it.id} className="flex items-center justify-between text-sm">
+                        <div className="text-gray-700">{name} × {qty}</div>
+                        <div className="font-semibold text-gray-900">${(unit * qty).toFixed(2)}</div>
                       </div>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Back</p>
-                    {bookingData.photoBackPreview ? (
-                      <img
-                        src={normalizeImageUrl(bookingData.photoBackPreview)}
-                        alt="Back"
-                        className="w-full aspect-video object-cover rounded-lg"
-                      />
-                    ) : (
-                      <div className="w-full aspect-video rounded-lg bg-gray-200 flex items-center justify-center text-gray-500 text-sm">
-                        No image
-                      </div>
-                    )}
-                  </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between">
+                  <div className="text-gray-700 font-semibold">{isFR ? "Total" : "Total"}</div>
+                  <div className="text-blue-700 text-xl font-bold">${itemsTotal.toFixed(2)}</div>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {isFR ? "TVH 13% peut s’appliquer." : "13% HST may apply."}
                 </div>
               </div>
 
-              {bookingData.additionalNotes && (
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <h3 className="font-semibold text-gray-700 mb-2">Additional Notes</h3>
-                  <p className="text-gray-600">{bookingData.additionalNotes}</p>
-                </div>
-              )}
-
-              {/* Authorization + legal */}
-              <div className="bg-white border rounded-xl p-4">
+              <div className="border border-gray-200 rounded-xl p-4">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={authorizationAccepted}
-                    onChange={(e) => {
-                      setAuthorizationAccepted(e.target.checked);
-                      setErrors((prev) => {
-                        const next = { ...prev };
-                        delete next.authorization;
-                        return next;
-                      });
-                    }}
-                    className="mt-1 h-4 w-4"
+                    onChange={(e) => setAuthorizationAccepted(e.target.checked)}
+                    className="mt-1"
                   />
-                  <span className="text-sm text-gray-800">{text.authLabel}</span>
+                  <div>
+                    <div className="text-sm text-gray-900 font-medium">{text.authLabel}</div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      {text.authHint} {" "}
+                      <Link href={`/terms?lang=${lang}`} className="text-blue-600 hover:underline">
+                        {text.terms}
+                      </Link>
+                      {" "}·{" "}
+                      <Link href={`/privacy?lang=${lang}`} className="text-blue-600 hover:underline">
+                        {text.privacy}
+                      </Link>
+                    </div>
+                  </div>
                 </label>
-                <p className="text-xs text-gray-500 mt-2">
-                  {text.authHint} {" "}
-                  <Link href={`/terms?lang=${lang}`} className="text-blue-600 hover:underline">
-                    {text.terms}
-                  </Link>
-                  {" "}
-                  ·{" "}
-                  <Link href={`/privacy?lang=${lang}`} className="text-blue-600 hover:underline">
-                    {text.privacy}
-                  </Link>
-                </p>
                 {errors?.authorization && (
                   <p className="text-red-500 text-sm mt-2 flex items-center gap-1">
                     <AlertCircle size={14} /> {errors.authorization}
                   </p>
                 )}
               </div>
-            </div>
 
-            {errors?.submit && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
-                {errors.submit}
-              </div>
-            )}
+              {errors?.submit && (
+                <p className="text-red-500 text-sm flex items-center gap-1">
+                  <AlertCircle size={14} /> {errors.submit}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Navigation Buttons */}
-        <div className="flex justify-between mt-8 pt-6 border-t">
-          {currentStep > 1 ? (
-            <button
-              type="button"
-              onClick={handleBack}
-              className="flex items-center gap-2 px-6 py-3 text-gray-600 hover:text-gray-900 font-medium"
-            >
-              <ChevronLeft size={20} /> {text.back}
-            </button>
-          ) : (
-            <div />
-          )}
+        {/* Footer nav */}
+        <div className="mt-8 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handleBack}
+            disabled={currentStep === 1 || isLoading}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all ${
+              currentStep === 1 || isLoading
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gray-100 hover:bg-gray-200 text-gray-800"
+            }`}
+          >
+            <ChevronLeft size={18} /> {text.back}
+          </button>
 
           {currentStep < 5 ? (
             <button
               type="button"
               onClick={handleNext}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all"
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold transition-all"
             >
-              {text.continue} <ChevronRight size={20} />
+              {text.continue} <ChevronRight size={18} />
             </button>
           ) : (
             <button
               type="button"
               onClick={handleSubmit}
               disabled={isLoading || !authorizationAccepted}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl font-semibold transition-all disabled:opacity-50"
+              className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition-all ${
+                isLoading || !authorizationAccepted
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "bg-green-600 hover:bg-green-700 text-white"
+              }`}
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="animate-spin" size={20} /> {text.processing}
+                  <Loader2 className="animate-spin" size={18} /> {text.processing}
                 </>
               ) : (
                 <>
-                  <Check size={20} /> {text.confirm}
+                  <Check size={18} /> {text.confirm}
                 </>
               )}
             </button>

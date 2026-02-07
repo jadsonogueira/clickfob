@@ -24,6 +24,12 @@ model Booking {
   photoBackUrl    String   @map("photo_back_url")
   photoFrontPublic Boolean @default(true) @map("photo_front_public")
   photoBackPublic  Boolean @default(true) @map("photo_back_public")
+
+  // ✅ Multi-item support (1 order can contain multiple item types and quantities)
+  // Stored as JSON for backwards compatibility.
+  // Example: [{ serviceId, serviceName, unitPrice, quantity, label, photoFrontUrl, photoBackUrl, extraPhotoUrls }]
+  items        Json?   @map("items")
+  totalPrice   Float?  @map("total_price")
   status          String   @default("pending")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
