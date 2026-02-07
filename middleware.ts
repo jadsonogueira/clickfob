@@ -1,26 +1,20 @@
-// middleware.ts
+// middleware.ts (trecho relevante)
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { ADMIN_COOKIE_NAME, verifyAdminSessionToken } from "@/lib/admin-auth";
+
+const ADMIN_COOKIE_NAME = "clickfob_admin";
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Libera login e assets do Next
-  if (pathname === "/admin/login") return NextResponse.next();
-  if (pathname.startsWith("/_next")) return NextResponse.next();
-  if (pathname.startsWith("/favicon")) return NextResponse.next();
-
-  // Protege tudo que começa com /admin
   if (pathname.startsWith("/admin")) {
-    const token = req.cookies.get(ADMIN_COOKIE_NAME)?.value;
-    const ok = verifyAdminSessionToken(token).ok;
+    const cookie = req.cookies.get(ADMIN_COOKIE_NAME)?.value || "";
+    const expected = String(process.env.ADMIN_DASHBOARD_KEY || "").trim();
 
-    if (!ok) {
-      const url = req.nextUrl.clone();
-      url.pathname = "/admin/login";
-      url.searchParams.set("next", pathname);
-      return NextResponse.redirect(url);
+    if (!expected || cookie !== expected) {
+      const loginUrl = new URL("/admin/login", req.url);
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
     }
   }
 
