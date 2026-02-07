@@ -60,7 +60,7 @@ export default function FobCopyLandingPage() {
 
         <div className="mt-10 rounded-2xl border border-gray-200 p-5">
           <div className="text-sm font-semibold text-gray-900">Pricing</div>
-          <div className="mt-2 text-sm text-gray-700">From $XX + HST</div>
+          <div className="mt-2 text-sm text-gray-700">From $30 + HST</div>
           <div className="mt-1 text-xs text-gray-500">
             Same-day / urgent service available
           </div>
