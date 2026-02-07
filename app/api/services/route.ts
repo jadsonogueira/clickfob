@@ -1,20 +1,41 @@
 // app/api/services/route.ts
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Lista única de serviços (fonte central)
-// Depois a gente conecta isso com a área admin pra ativar/desativar.
-const SERVICES = [
-  { id: "fob-lf", name: "Fob Low Frequency (LF)", price: 35, active: true },
-  { id: "fob-hf", name: "Fob High Frequency (HF)", price: 60, active: true },
-  { id: "garage-remote", name: "Garage Remote", price: 80, active: true },
-];
+type ServiceDTO = {
+  id: string;       // ex: "fob-lf"
+  name: string;
+  price: number;
+  active: boolean;  // compat com seu front atual
+  sortOrder?: number;
+};
 
 export async function GET() {
-  return NextResponse.json({
-    success: true,
-    services: SERVICES,
-  });
+  try {
+    const rows = await prisma.serviceCatalog.findMany({
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    });
+
+    const services: ServiceDTO[] = rows.map((s) => ({
+      id: s.serviceId,
+      name: s.name,
+      price: s.price,
+      active: s.enabled,
+      sortOrder: s.sortOrder,
+    }));
+
+    return NextResponse.json({
+      success: true,
+      services,
+    });
+  } catch (err) {
+    console.error("GET /api/services error:", err);
+    return NextResponse.json(
+      { success: false, error: "Failed to load services" },
+      { status: 500 }
+    );
+  }
 }
