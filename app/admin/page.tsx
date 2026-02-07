@@ -88,6 +88,34 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
+        {/* ✅ Shortcuts */}
+        <div className="mt-6 rounded-2xl bg-white shadow p-4 border border-slate-100">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="font-bold text-slate-900">Admin Shortcuts</div>
+              <div className="text-sm text-slate-600">
+                Quick access to admin tools.
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/admin/services"
+                className="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+              >
+                Services
+              </Link>
+
+              <Link
+                href="/admin"
+                className="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+              >
+                Bookings
+              </Link>
+            </div>
+          </div>
+        </div>
+
         <div className="mt-6 flex flex-wrap gap-2">
           {(["all", "pending", "confirmed", "cancelled"] as const).map((s) => (
             <button
