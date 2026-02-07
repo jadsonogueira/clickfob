@@ -60,7 +60,17 @@ export async function POST(request: Request) {
       }
 
       // Validate items
-      const normalizedItems = (items as any[]).map((it) => {
+      type NormalizedItem = {
+        serviceId: string;
+        serviceName: string;
+        unitPrice: number;
+        quantity: number;
+        label?: string;
+        photoFrontUrl: string;
+        photoBackUrl: string;
+      };
+
+      const normalizedItemsRaw: Array<NormalizedItem | null> = (items as any[]).map((it) => {
         const svc = services[String(it?.serviceId || "")];
         if (!svc) return null;
         const quantity = Math.max(1, Number(it?.quantity || 1));
@@ -79,7 +89,12 @@ export async function POST(request: Request) {
         };
       });
 
-      if (!normalizedItems.length || normalizedItems.some((x) => !x)) {
+      // Filter nulls with a type guard so TS knows every item is valid
+      const normalizedItems = normalizedItemsRaw.filter(
+        (x): x is NormalizedItem => x !== null
+      );
+
+      if (!normalizedItems.length || normalizedItems.length !== normalizedItemsRaw.length) {
         return NextResponse.json(
           { success: false, error: "Invalid items" },
           { status: 400 }
