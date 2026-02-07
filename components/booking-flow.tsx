@@ -503,10 +503,11 @@ export default function BookingFlow() {
                         >
                           <option value="">{text.selectService}</option>
                           {services.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name} — ${s.price}
+                            <option key={s.id} value={s.id} disabled={(s as any).enabled === false}>
+                              {s.name} — ${s.price} {(s as any).enabled === false ? (isFR ? " (Indisponible)" : " (Unavailable)") : ""}
                             </option>
                           ))}
+
                         </select>
                         {svc && (
                           <p className="text-xs text-gray-500 mt-1">
