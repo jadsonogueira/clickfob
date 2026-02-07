@@ -9,6 +9,7 @@ import {
   Settings,
   Truck,
   Store,
+  AlertCircle,
 } from "lucide-react";
 
 type Lang = "en" | "fr";
@@ -19,27 +20,7 @@ function getLang(searchParams?: Record<string, string | string[] | undefined>): 
   return (val || "en").toLowerCase() === "fr" ? "fr" : "en";
 }
 
-// ✅ serviços vindos da API
-type ApiService = {
-  id: string;        // serviceId (ex: fob-lf)
-  name: string;
-  price: number;
-  active: boolean;
-  sortOrder?: number;
-};
-
-// ✅ ícone por id (fallback Key)
-const ICON_BY_ID: Record<string, any> = {
-  "fob-lf": Key,
-  "fob-hf": Radio,
-  "garage-remote": Settings,
-  // novos (se quiser):
-  "fob-hf-enc": Shield,
-  "remote-garage": Settings,
-  "key-cut": Key,
-};
-
-export default async function HomePage({
+export default function HomePage({
   searchParams,
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -99,7 +80,6 @@ export default async function HomePage({
         ctaBottomText:
           "Commencez votre commande et téléversez des photos pour vérifier la compatibilité.",
         getStarted: "Commencer",
-        failedServices: "Impossible de charger les services.",
       }
     : {
         heroTitle1: "Key Fob Copy in Toronto",
@@ -151,48 +131,9 @@ export default async function HomePage({
         ctaBottomText:
           "Start your order and upload photos so we can verify compatibility.",
         getStarted: "Get Started",
-        failedServices: "Failed to load services.",
       };
 
   const withLang = (path: string) => `${path}?lang=${lang}`;
-
-  // ✅ fetch no server (Next 14)
-  let apiServices: ApiService[] = [];
-  let servicesOk = true;
-
-  try {
-    // usando URL relativa: no server precisa baseURL (NEXT_PUBLIC_SITE_URL recomendado)
-    const base =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      process.env.NEXTAUTH_URL ||
-      process.env.VERCEL_URL ||
-      "";
-
-    const origin =
-      base.startsWith("http") ? base : base ? `https://${base}` : "";
-
-    const res = await fetch(`${origin}/api/services`, {
-      cache: "no-store",
-    });
-    const data = await res.json();
-
-    const list: ApiService[] =
-      data?.services || data?.data?.services || [];
-
-    apiServices = Array.isArray(list) ? list : [];
-  } catch {
-    servicesOk = false;
-    apiServices = [];
-  }
-
-  // ✅ ordena e monta UI
-  const servicesUi = apiServices
-    .slice()
-    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-    .map((s) => ({
-      ...s,
-      icon: ICON_BY_ID[s.id] || Key,
-    }));
 
   const trust = [
     { icon: Zap, title: t.trust1, desc: t.trust1d },
@@ -276,94 +217,8 @@ export default async function HomePage({
         </div>
       </section>
 
-      {/* Services */}
-      <section id="services" className="py-16 lg:py-24 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
-              {t.servicesTitle}
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              {t.servicesSubtitle}
-            </p>
-          </div>
-
-          {!servicesOk ? (
-            <div className="text-center text-sm text-red-600 mb-6">
-              {t.failedServices}
-            </div>
-          ) : null}
-
-          <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-            {servicesUi.map((service) => {
-              const Icon = service.icon;
-              const disabled = service.active === false;
-
-              return (
-                <div
-                  key={service.id}
-                  className={`relative rounded-2xl shadow-sm transition-all p-6 lg:p-8 flex flex-col border ${
-                    disabled
-                      ? "bg-gray-50 opacity-70"
-                      : "bg-gray-50 hover:shadow-md"
-                  }`}
-                >
-                  {/* Overlay Unavailable */}
-                  {disabled ? (
-                    <div className="absolute inset-0 rounded-2xl flex items-start justify-end p-4 pointer-events-none">
-                      <span className="inline-flex items-center rounded-full bg-gray-200 text-gray-700 px-3 py-1 text-xs font-bold">
-                        {t.unavailable}
-                      </span>
-                    </div>
-                  ) : null}
-
-                  <div className="flex items-center gap-4 mb-4">
-                    <div
-                      className={`p-3 rounded-xl ${
-                        disabled ? "bg-gray-200 text-gray-500" : "bg-blue-100 text-blue-600"
-                      }`}
-                    >
-                      <Icon size={28} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 text-lg">
-                        {service.name}
-                      </h3>
-                      <p className={`text-2xl font-bold ${disabled ? "text-gray-600" : "text-blue-600"}`}>
-                        ${Number(service.price).toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Você não tem desc no Mongo ainda, então deixei um texto curto */}
-                  <p className="text-gray-600 mb-6 flex-1">
-                    {isFR
-                      ? "Service disponible selon compatibilité technique."
-                      : "Service available subject to technical compatibility."}
-                  </p>
-
-                  {disabled ? (
-                    <button
-                      type="button"
-                      disabled
-                      className="w-full bg-gray-200 text-gray-600 py-3 rounded-xl font-semibold text-center flex items-center justify-center gap-2 cursor-not-allowed"
-                    >
-                      {t.unavailable}
-                    </button>
-                  ) : (
-                    <Link
-                      href={`${withLang("/book")}&service=${service.id}`}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold text-center transition-all flex items-center justify-center gap-2"
-                    >
-                      {t.book} <ArrowRight size={18} />
-                    </Link>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+      {/* Services (client component) */}
+      <ServicesSection lang={lang} />
 
       {/* Pickup & Delivery */}
       <section className="py-16 bg-gray-50 border-t border-b">
@@ -428,5 +283,226 @@ export default async function HomePage({
         </div>
       </section>
     </div>
+  );
+}
+
+/* ---------------------- */
+/* CLIENT SERVICES SECTION */
+/* ---------------------- */
+
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
+type ServiceApiItem = {
+  id: string; // serviceId
+  name: string;
+  price: number;
+  active?: boolean;
+};
+
+type LocalContent = {
+  id: string;
+  icon: any;
+  en: { name: string; desc: string };
+  fr: { name: string; desc: string };
+};
+
+const LOCAL: LocalContent[] = [
+  {
+    id: "fob-lf",
+    icon: Key,
+    en: {
+      name: "Fob Low Frequency (LF)",
+      desc:
+        "Duplicate low frequency (125kHz) key fobs. Common for older apartment and condo buildings.",
+    },
+    fr: {
+      name: "Porte-clés basse fréquence (LF)",
+      desc:
+        "Duplication de porte-clés basse fréquence (125 kHz). Fréquent dans les immeubles plus anciens.",
+    },
+  },
+  {
+    id: "fob-hf",
+    icon: Radio,
+    en: {
+      name: "Fob High Frequency (HF)",
+      desc:
+        "Duplicate high frequency (13.56MHz) key fobs. Common for newer secure buildings and offices.",
+    },
+    fr: {
+      name: "Porte-clés haute fréquence (HF)",
+      desc:
+        "Duplication de porte-clés haute fréquence (13,56 MHz). Courant dans les immeubles plus récents.",
+    },
+  },
+  {
+    id: "garage-remote",
+    icon: Settings,
+    en: {
+      name: "Garage Remote",
+      desc:
+        "Program a new garage remote to work with your existing opener. Fast and reliable.",
+    },
+    fr: {
+      name: "Télécommande de garage",
+      desc:
+        "Programmation d’une télécommande compatible avec votre ouvre-porte existant.",
+    },
+  },
+];
+
+function ServicesSection({ lang }: { lang: "en" | "fr" }) {
+  const isFR = lang === "fr";
+
+  const t = isFR
+    ? {
+        servicesTitle: "Services",
+        servicesSubtitle:
+          "Duplication de porte-clés compatibles et programmation de télécommandes de garage.",
+        book: "Réserver",
+        unavailable: "Indisponible",
+        failed: "Impossible de charger les services.",
+      }
+    : {
+        servicesTitle: "Services",
+        servicesSubtitle:
+          "Compatible key fob duplication and garage remote programming.",
+        book: "Book Now",
+        unavailable: "Unavailable",
+        failed: "Failed to load services.",
+      };
+
+  const [loading, setLoading] = useState(true);
+  const [ok, setOk] = useState(true);
+  const [api, setApi] = useState<ServiceApiItem[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setOk(true);
+      try {
+        const res = await fetch("/api/services", { cache: "no-store" });
+        const data = await res.json();
+        const list: ServiceApiItem[] = data?.services || data?.data?.services || [];
+        if (!cancelled) setApi(Array.isArray(list) ? list : []);
+      } catch {
+        if (!cancelled) {
+          setOk(false);
+          setApi([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const merged = useMemo(() => {
+    // cria map da API
+    const m = new Map<string, ServiceApiItem>();
+    for (const s of api) m.set(String(s.id), s);
+
+    // monta lista baseada no LOCAL (mantém desc/ícone)
+    return LOCAL.map((lc) => {
+      const a = m.get(lc.id);
+      const active = a ? a.active !== false : true;
+      const price = a ? Number(a.price || 0) : 0;
+
+      return {
+        id: lc.id,
+        icon: lc.icon,
+        name: (isFR ? lc.fr.name : lc.en.name),
+        desc: (isFR ? lc.fr.desc : lc.en.desc),
+        active,
+        price,
+      };
+    });
+  }, [api, isFR]);
+
+  const withLang = (path: string) => `${path}?lang=${lang}`;
+
+  return (
+    <section id="services" className="py-16 lg:py-24 bg-white">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+            {t.servicesTitle}
+          </h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            {t.servicesSubtitle}
+          </p>
+        </div>
+
+        {!ok ? (
+          <div className="mb-6 text-sm text-red-600 flex items-center justify-center gap-2">
+            <AlertCircle size={16} />
+            {t.failed}
+          </div>
+        ) : null}
+
+        <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+          {merged.map((service) => {
+            const Icon = service.icon;
+            const disabled = service.active === false;
+
+            return (
+              <div
+                key={service.id}
+                className={`relative bg-gray-50 rounded-2xl shadow-sm transition-all p-6 lg:p-8 flex flex-col border ${
+                  disabled ? "opacity-70" : "hover:shadow-md"
+                }`}
+              >
+                {disabled ? (
+                  <div className="absolute inset-0 rounded-2xl flex items-start justify-end p-4 pointer-events-none">
+                    <span className="inline-flex items-center rounded-full bg-gray-200 text-gray-700 px-3 py-1 text-xs font-bold">
+                      {t.unavailable}
+                    </span>
+                  </div>
+                ) : null}
+
+                <div className="flex items-center gap-4 mb-4">
+                  <div className={`p-3 rounded-xl ${disabled ? "bg-gray-200 text-gray-500" : "bg-blue-100 text-blue-600"}`}>
+                    <Icon size={28} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-lg">{service.name}</h3>
+                    <p className={`text-2xl font-bold ${disabled ? "text-gray-600" : "text-blue-600"}`}>
+                      {loading ? "—" : `$${Number(service.price).toFixed(2)}`}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-gray-600 mb-6 flex-1">{service.desc}</p>
+
+                {disabled ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full bg-gray-200 text-gray-600 py-3 rounded-xl font-semibold text-center flex items-center justify-center gap-2 cursor-not-allowed"
+                  >
+                    {t.unavailable}
+                  </button>
+                ) : (
+                  <Link
+                    href={`${withLang("/book")}&service=${service.id}`}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold text-center transition-all flex items-center justify-center gap-2"
+                  >
+                    {t.book} <ArrowRight size={18} />
+                  </Link>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
   );
 }
