@@ -1,3 +1,4 @@
+// components/booking-flow.tsx
 "use client";
 
 import Link from "next/link";
@@ -144,6 +145,10 @@ export default function BookingFlow() {
         mustAccept: "Veuillez confirmer l’autorisation avant de finaliser.",
         missingItems: "Ajoutez au moins un article et sélectionnez un service.",
         missingPhotos: "Chaque article doit avoir une photo recto et verso.",
+        unavailable: "Indisponible",
+        selectedServiceDisabled:
+          "Le service sélectionné est actuellement indisponible. Veuillez en choisir un autre.",
+        noServices: "Aucun service disponible pour le moment.",
       }
     : {
         back: "Back",
@@ -179,6 +184,10 @@ export default function BookingFlow() {
         mustAccept: "Please confirm authorization before submitting.",
         missingItems: "Add at least one item and select a service.",
         missingPhotos: "Each item must have a front and back photo.",
+        unavailable: "Unavailable",
+        selectedServiceDisabled:
+          "The selected service is currently unavailable. Please choose another one.",
+        noServices: "No services available right now.",
       };
 
   const [bookingData, setBookingData] = useState<BookingData>(() => {
@@ -216,7 +225,8 @@ export default function BookingFlow() {
         const res = await fetch("/api/services", { cache: "no-store" });
         const data = await res.json();
 
-        const apiList: ServiceApiItem[] = data?.services || data?.data?.services || [];
+        const apiList: ServiceApiItem[] =
+          data?.services || data?.data?.services || [];
         const normalized: UiService[] = (apiList || []).map((s) => ({
           id: String(s.id),
           name: String(s.name),
@@ -240,10 +250,6 @@ export default function BookingFlow() {
       cancelled = true;
     };
   }, []);
-
-  const activeServices = useMemo(() => {
-    return services.filter((s) => s.active);
-  }, [services]);
 
   const itemsTotal = useMemo(() => {
     return bookingData.items.reduce((sum, item) => {
@@ -331,9 +337,7 @@ export default function BookingFlow() {
     if (currentStep === 1) {
       const hasAtLeastOne = bookingData.items.length > 0;
       const allHaveService = bookingData.items.every((it) => !!it.serviceId);
-      const allQtyValid = bookingData.items.every(
-        (it) => (it.quantity || 0) >= 1
-      );
+      const allQtyValid = bookingData.items.every((it) => (it.quantity || 0) >= 1);
 
       // ✅ também valida se o serviceId ainda existe e está ativo
       const allServicesStillActive = bookingData.items.every((it) => {
@@ -341,58 +345,37 @@ export default function BookingFlow() {
         return !!svc && svc.active;
       });
 
-      if (
-        !hasAtLeastOne ||
-        !allHaveService ||
-        !allQtyValid ||
-        !allServicesStillActive
-      ) {
+      if (!hasAtLeastOne || !allHaveService || !allQtyValid || !allServicesStillActive) {
         newErrors.items = text.missingItems;
       }
     }
 
     if (currentStep === 2) {
-      const allHavePhotos = bookingData.items.every(
-        (it) => !!it.photoFront && !!it.photoBack
-      );
+      const allHavePhotos = bookingData.items.every((it) => !!it.photoFront && !!it.photoBack);
       if (!allHavePhotos) newErrors.photos = text.missingPhotos;
     }
 
     if (currentStep === 3) {
       if (!bookingData.selectedDate)
-        newErrors.date = isFR
-          ? "Veuillez choisir une date"
-          : "Please select a date";
+        newErrors.date = isFR ? "Veuillez choisir une date" : "Please select a date";
       if (!bookingData.selectedTime)
-        newErrors.time = isFR
-          ? "Veuillez choisir une plage horaire"
-          : "Please select a time slot";
+        newErrors.time = isFR ? "Veuillez choisir une plage horaire" : "Please select a time slot";
     }
 
     if (currentStep === 4) {
       if (!bookingData.customerName?.trim())
         newErrors.name = isFR ? "Le nom est requis" : "Name is required";
       if (!bookingData.customerAddress?.trim())
-        newErrors.address = isFR
-          ? "L’adresse est requise"
-          : "Address is required";
+        newErrors.address = isFR ? "L’adresse est requise" : "Address is required";
       if (!bookingData.customerEmail?.trim()) {
         newErrors.email = isFR ? "L’email est requis" : "Email is required";
-      } else if (
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookingData.customerEmail)
-      ) {
-        newErrors.email = isFR
-          ? "Format d’email invalide"
-          : "Invalid email format";
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookingData.customerEmail)) {
+        newErrors.email = isFR ? "Format d’email invalide" : "Invalid email format";
       }
       if (!bookingData.customerWhatsapp?.trim()) {
-        newErrors.whatsapp = isFR
-          ? "Le numéro WhatsApp est requis"
-          : "WhatsApp number is required";
+        newErrors.whatsapp = isFR ? "Le numéro WhatsApp est requis" : "WhatsApp number is required";
       } else if (
-        !/^[+]?[0-9\s()-]{10,}$/.test(
-          bookingData.customerWhatsapp?.replace(/\s/g, "")
-        )
+        !/^[+]?[0-9\s()-]{10,}$/.test(bookingData.customerWhatsapp?.replace(/\s/g, ""))
       ) {
         newErrors.whatsapp = isFR ? "Numéro invalide" : "Invalid phone number";
       }
@@ -419,12 +402,6 @@ export default function BookingFlow() {
   const getDateMin = () => {
     const today = new Date();
     return today.toISOString().split("T")[0];
-  };
-
-  const isWeekday = (dateString: string) => {
-    const date = new Date(dateString + "T12:00:00");
-    const day = date.getDay();
-    return day >= 1 && day <= 6;
   };
 
   const formatDate = (dateString: string) => {
@@ -463,8 +440,7 @@ export default function BookingFlow() {
       for (const item of bookingData.items) {
         const svc = services.find((s) => s.id === item.serviceId);
         if (!svc || !svc.active) throw new Error("Invalid service in items");
-        if (!item.photoFront || !item.photoBack)
-          throw new Error("Missing photos");
+        if (!item.photoFront || !item.photoBack) throw new Error("Missing photos");
 
         const formData = new FormData();
         formData.append("front", item.photoFront);
@@ -508,9 +484,7 @@ export default function BookingFlow() {
 
       const bookingResult = await bookingRes.json();
       if (bookingResult?.success) {
-        router.push(
-          `/booking-success?order=${bookingResult.orderNumber}&lang=${lang}`
-        );
+        router.push(`/booking-success?order=${bookingResult.orderNumber}&lang=${lang}`);
       } else {
         throw new Error(bookingResult?.error || "Failed to create booking");
       }
@@ -526,6 +500,8 @@ export default function BookingFlow() {
     }
   };
 
+  const anyActiveServices = useMemo(() => services.some((s) => s.active), [services]);
+
   return (
     <div>
       {/* Progress Steps */}
@@ -540,11 +516,7 @@ export default function BookingFlow() {
                     : "border-gray-300 text-gray-400"
                 }`}
               >
-                {currentStep > step.id ? (
-                  <Check size={18} />
-                ) : (
-                  <step.icon size={18} />
-                )}
+                {currentStep > step.id ? <Check size={18} /> : <step.icon size={18} />}
               </div>
               {index < steps.length - 1 && (
                 <div
@@ -575,9 +547,7 @@ export default function BookingFlow() {
         {/* Step 1: Items */}
         {currentStep === 1 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {text.itemsTitle}
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.itemsTitle}</h2>
             <p className="text-gray-600 mb-6">{text.itemsSubtitle}</p>
 
             {servicesLoading ? (
@@ -588,20 +558,24 @@ export default function BookingFlow() {
             ) : services.length === 0 ? (
               <div className="mb-4 text-sm text-red-600 flex items-center gap-2">
                 <AlertCircle size={16} />
-                {isFR
-                  ? "Impossible de charger les services."
-                  : "Failed to load services."}
+                {isFR ? "Impossible de charger les services." : "Failed to load services."}
+              </div>
+            ) : null}
+
+            {!servicesLoading && services.length > 0 && !anyActiveServices ? (
+              <div className="mb-4 text-sm text-red-600 flex items-center gap-2">
+                <AlertCircle size={16} />
+                {text.noServices}
               </div>
             ) : null}
 
             <div className="space-y-4">
               {bookingData.items.map((item, idx) => {
                 const svc = services.find((s) => s.id === item.serviceId);
+                const selectedDisabled = !!svc && !svc.active;
+
                 return (
-                  <div
-                    key={item.id}
-                    className="border border-gray-200 rounded-xl p-4"
-                  >
+                  <div key={item.id} className="border border-gray-200 rounded-xl p-4">
                     <div className="flex items-center justify-between gap-3 mb-3">
                       <div className="text-sm font-semibold text-gray-800">
                         {isFR ? `Article ${idx + 1}` : `Item ${idx + 1}`}
@@ -620,23 +594,20 @@ export default function BookingFlow() {
                     <div className="grid md:grid-cols-3 gap-3">
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {text.service}{" "}
-                          <span className="text-red-500">*</span>
+                          {text.service} <span className="text-red-500">*</span>
                         </label>
 
                         <select
                           value={item.serviceId}
-                          onChange={(e) =>
-                            updateItem(item.id, { serviceId: e.target.value })
-                          }
+                          onChange={(e) => updateItem(item.id, { serviceId: e.target.value })}
                           className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">{text.selectService}</option>
 
-                          {/* ✅ somente ativos */}
-                          {activeServices.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name} — ${s.price}
+                          {/* ✅ mostra TODOS; desativados aparecem como Unavailable e ficam disabled */}
+                          {services.map((s) => (
+                            <option key={s.id} value={s.id} disabled={!s.active}>
+                              {s.name} — ${s.price} {!s.active ? `(${text.unavailable})` : ""}
                             </option>
                           ))}
                         </select>
@@ -648,30 +619,24 @@ export default function BookingFlow() {
                           </p>
                         )}
 
-                        {!servicesLoading && services.length > 0 && activeServices.length === 0 ? (
+                        {selectedDisabled ? (
                           <p className="text-xs text-red-600 mt-2 flex items-center gap-1">
                             <AlertCircle size={14} />
-                            {isFR
-                              ? "Aucun service disponible pour le moment."
-                              : "No services available right now."}
+                            {text.selectedServiceDisabled}
                           </p>
                         ) : null}
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {text.quantity}{" "}
-                          <span className="text-red-500">*</span>
+                          {text.quantity} <span className="text-red-500">*</span>
                         </label>
                         <div className="flex items-center justify-between gap-2 border border-gray-300 rounded-xl px-3 py-2">
                           <button
                             type="button"
                             onClick={() =>
                               updateItem(item.id, {
-                                quantity: Math.max(
-                                  1,
-                                  (item.quantity || 1) - 1
-                                ),
+                                quantity: Math.max(1, (item.quantity || 1) - 1),
                               })
                             }
                             className="p-1 rounded-lg hover:bg-gray-100"
@@ -679,9 +644,7 @@ export default function BookingFlow() {
                           >
                             <Minus size={18} />
                           </button>
-                          <div className="text-lg font-semibold text-gray-900">
-                            {item.quantity || 1}
-                          </div>
+                          <div className="text-lg font-semibold text-gray-900">{item.quantity || 1}</div>
                           <button
                             type="button"
                             onClick={() =>
@@ -704,9 +667,7 @@ export default function BookingFlow() {
                       </label>
                       <input
                         value={item.label}
-                        onChange={(e) =>
-                          updateItem(item.id, { label: e.target.value })
-                        }
+                        onChange={(e) => updateItem(item.id, { label: e.target.value })}
                         placeholder={text.labelPh}
                         className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
@@ -725,12 +686,8 @@ export default function BookingFlow() {
                 <Plus size={18} /> {text.addItem}
               </button>
               <div className="text-right">
-                <div className="text-sm text-gray-500">
-                  {isFR ? "Total estimé" : "Estimated total"}
-                </div>
-                <div className="text-xl font-bold text-blue-700">
-                  ${itemsTotal.toFixed(2)}
-                </div>
+                <div className="text-sm text-gray-500">{isFR ? "Total estimé" : "Estimated total"}</div>
+                <div className="text-xl font-bold text-blue-700">${itemsTotal.toFixed(2)}</div>
               </div>
             </div>
 
@@ -742,15 +699,10 @@ export default function BookingFlow() {
           </div>
         )}
 
-        {/* Step 2... (o resto do arquivo permanece igual ao seu, só trocando services.find etc - já está acima) */}
-        {/* A partir daqui, seu código segue igual ao que você mandou, sem precisar de mais mudanças. */}
-
         {/* Step 2: Photos (per item) */}
         {currentStep === 2 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {text.photosTitle}
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.photosTitle}</h2>
             <p className="text-gray-600 mb-6">{text.photosSubtitle}</p>
 
             <div className="space-y-4">
@@ -761,25 +713,15 @@ export default function BookingFlow() {
                   svc?.name ||
                   (isFR ? `Article ${idx + 1}` : `Item ${idx + 1}`);
                 return (
-                  <div
-                    key={item.id}
-                    className="border border-gray-200 rounded-xl p-4"
-                  >
+                  <div key={item.id} className="border border-gray-200 rounded-xl p-4">
                     <div className="flex items-center justify-between gap-3 mb-4">
                       <div>
-                        <div className="font-semibold text-gray-900">
-                          {title}
-                        </div>
+                        <div className="font-semibold text-gray-900">{title}</div>
                         <div className="text-xs text-gray-500">
-                          {isFR ? "Copies" : "Copies"}:{" "}
-                          <strong>{item.quantity || 1}</strong>
+                          {isFR ? "Copies" : "Copies"}: <strong>{item.quantity || 1}</strong>
                         </div>
                       </div>
-                      {svc && (
-                        <div className="text-sm text-blue-700 font-bold">
-                          ${svc.price.toFixed(2)} ea
-                        </div>
-                      )}
+                      {svc && <div className="text-sm text-blue-700 font-bold">${svc.price.toFixed(2)} ea</div>}
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
@@ -787,12 +729,9 @@ export default function BookingFlow() {
                       <div className="bg-gray-50 rounded-xl p-4">
                         <div className="flex items-center justify-between mb-2">
                           <div className="font-medium text-gray-900">
-                            {text.front}{" "}
-                            <span className="text-red-500">*</span>
+                            {text.front} <span className="text-red-500">*</span>
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {text.required}
-                          </div>
+                          <div className="text-xs text-gray-500">{text.required}</div>
                         </div>
 
                         {item.photoFrontPreview ? (
@@ -808,11 +747,7 @@ export default function BookingFlow() {
                                 accept="image/*"
                                 className="hidden"
                                 onChange={(e) =>
-                                  handleFileChange(
-                                    item.id,
-                                    "front",
-                                    e.target.files?.[0] || null
-                                  )
+                                  handleFileChange(item.id, "front", e.target.files?.[0] || null)
                                 }
                               />
                               {text.change}
@@ -825,18 +760,12 @@ export default function BookingFlow() {
                               accept="image/*"
                               className="hidden"
                               onChange={(e) =>
-                                handleFileChange(
-                                  item.id,
-                                  "front",
-                                  e.target.files?.[0] || null
-                                )
+                                handleFileChange(item.id, "front", e.target.files?.[0] || null)
                               }
                             />
                             <div className="flex flex-col items-center gap-2 text-gray-600">
                               <Camera size={28} />
-                              <span className="text-sm">
-                                {isFR ? "Téléverser une photo" : "Upload photo"}
-                              </span>
+                              <span className="text-sm">{isFR ? "Téléverser une photo" : "Upload photo"}</span>
                             </div>
                           </label>
                         )}
@@ -846,12 +775,9 @@ export default function BookingFlow() {
                       <div className="bg-gray-50 rounded-xl p-4">
                         <div className="flex items-center justify-between mb-2">
                           <div className="font-medium text-gray-900">
-                            {text.backSide}{" "}
-                            <span className="text-red-500">*</span>
+                            {text.backSide} <span className="text-red-500">*</span>
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {text.required}
-                          </div>
+                          <div className="text-xs text-gray-500">{text.required}</div>
                         </div>
 
                         {item.photoBackPreview ? (
@@ -867,11 +793,7 @@ export default function BookingFlow() {
                                 accept="image/*"
                                 className="hidden"
                                 onChange={(e) =>
-                                  handleFileChange(
-                                    item.id,
-                                    "back",
-                                    e.target.files?.[0] || null
-                                  )
+                                  handleFileChange(item.id, "back", e.target.files?.[0] || null)
                                 }
                               />
                               {text.change}
@@ -884,18 +806,12 @@ export default function BookingFlow() {
                               accept="image/*"
                               className="hidden"
                               onChange={(e) =>
-                                handleFileChange(
-                                  item.id,
-                                  "back",
-                                  e.target.files?.[0] || null
-                                )
+                                handleFileChange(item.id, "back", e.target.files?.[0] || null)
                               }
                             />
                             <div className="flex flex-col items-center gap-2 text-gray-600">
                               <Camera size={28} />
-                              <span className="text-sm">
-                                {isFR ? "Téléverser une photo" : "Upload photo"}
-                              </span>
+                              <span className="text-sm">{isFR ? "Téléverser une photo" : "Upload photo"}</span>
                             </div>
                           </label>
                         )}
@@ -917,13 +833,9 @@ export default function BookingFlow() {
         {/* Step 3: Date & Time */}
         {currentStep === 3 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {text.dateTitle}
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.dateTitle}</h2>
             <p className="text-gray-600 mb-6">
-              {isFR
-                ? "Choisissez une date et une plage horaire."
-                : "Choose a date and a time slot."}
+              {isFR ? "Choisissez une date et une plage horaire." : "Choose a date and a time slot."}
             </p>
 
             <div className="space-y-6">
@@ -980,11 +892,7 @@ export default function BookingFlow() {
                         }`}
                       >
                         <div className="font-semibold">{slot.label}</div>
-                        {isBooked && (
-                          <div className="text-xs mt-1">
-                            {isFR ? "Réservé" : "Booked"}
-                          </div>
-                        )}
+                        {isBooked && <div className="text-xs mt-1">{isFR ? "Réservé" : "Booked"}</div>}
                       </button>
                     );
                   })}
@@ -998,8 +906,7 @@ export default function BookingFlow() {
 
               {bookingData.selectedDate && (
                 <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl p-4">
-                  <strong>{isFR ? "Sélection" : "Selection"}:</strong>{" "}
-                  {formatDate(bookingData.selectedDate)}
+                  <strong>{isFR ? "Sélection" : "Selection"}:</strong> {formatDate(bookingData.selectedDate)}
                 </div>
               )}
             </div>
@@ -1009,29 +916,19 @@ export default function BookingFlow() {
         {/* Step 4: Details */}
         {currentStep === 4 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {text.detailsTitle}
-            </h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.detailsTitle}</h2>
             <p className="text-gray-600 mb-6">
-              {isFR
-                ? "Entrez vos informations de contact."
-                : "Enter your contact details."}
+              {isFR ? "Entrez vos informations de contact." : "Enter your contact details."}
             </p>
 
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isFR ? "Nom" : "Name"}{" "}
-                  <span className="text-red-500">*</span>
+                  {isFR ? "Nom" : "Name"} <span className="text-red-500">*</span>
                 </label>
                 <input
                   value={bookingData.customerName}
-                  onChange={(e) =>
-                    setBookingData((p) => ({
-                      ...p,
-                      customerName: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setBookingData((p) => ({ ...p, customerName: e.target.value }))}
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {errors?.name && (
@@ -1043,17 +940,11 @@ export default function BookingFlow() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isFR ? "WhatsApp" : "WhatsApp"}{" "}
-                  <span className="text-red-500">*</span>
+                  {isFR ? "WhatsApp" : "WhatsApp"} <span className="text-red-500">*</span>
                 </label>
                 <input
                   value={bookingData.customerWhatsapp}
-                  onChange={(e) =>
-                    setBookingData((p) => ({
-                      ...p,
-                      customerWhatsapp: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setBookingData((p) => ({ ...p, customerWhatsapp: e.target.value }))}
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {errors?.whatsapp && (
@@ -1065,17 +956,11 @@ export default function BookingFlow() {
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isFR ? "Adresse" : "Address"}{" "}
-                  <span className="text-red-500">*</span>
+                  {isFR ? "Adresse" : "Address"} <span className="text-red-500">*</span>
                 </label>
                 <input
                   value={bookingData.customerAddress}
-                  onChange={(e) =>
-                    setBookingData((p) => ({
-                      ...p,
-                      customerAddress: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setBookingData((p) => ({ ...p, customerAddress: e.target.value }))}
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {errors?.address && (
@@ -1091,29 +976,18 @@ export default function BookingFlow() {
                 </label>
                 <input
                   value={bookingData.customerUnit}
-                  onChange={(e) =>
-                    setBookingData((p) => ({
-                      ...p,
-                      customerUnit: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setBookingData((p) => ({ ...p, customerUnit: e.target.value }))}
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isFR ? "Email" : "Email"}{" "}
-                  <span className="text-red-500">*</span>
+                  {isFR ? "Email" : "Email"} <span className="text-red-500">*</span>
                 </label>
                 <input
                   value={bookingData.customerEmail}
-                  onChange={(e) =>
-                    setBookingData((p) => ({
-                      ...p,
-                      customerEmail: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setBookingData((p) => ({ ...p, customerEmail: e.target.value }))}
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {errors?.email && (
@@ -1125,18 +999,11 @@ export default function BookingFlow() {
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isFR
-                    ? "Notes (optionnel)"
-                    : "Additional notes (optional)"}
+                  {isFR ? "Notes (optionnel)" : "Additional notes (optional)"}
                 </label>
                 <textarea
                   value={bookingData.additionalNotes}
-                  onChange={(e) =>
-                    setBookingData((p) => ({
-                      ...p,
-                      additionalNotes: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setBookingData((p) => ({ ...p, additionalNotes: e.target.value }))}
                   rows={4}
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -1148,20 +1015,12 @@ export default function BookingFlow() {
         {/* Step 5: Confirm */}
         {currentStep === 5 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {text.confirmTitle}
-            </h2>
-            <p className="text-gray-600 mb-6">
-              {isFR
-                ? "Vérifiez les détails et confirmez."
-                : "Review the details and confirm."}
-            </p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.confirmTitle}</h2>
+            <p className="text-gray-600 mb-6">{isFR ? "Vérifiez les détails et confirmez." : "Review the details and confirm."}</p>
 
             <div className="space-y-4">
               <div className="border border-gray-200 rounded-xl p-4">
-                <div className="font-semibold text-gray-900 mb-2">
-                  {isFR ? "Résumé" : "Summary"}
-                </div>
+                <div className="font-semibold text-gray-900 mb-2">{isFR ? "Résumé" : "Summary"}</div>
                 <div className="space-y-2">
                   {bookingData.items.map((it) => {
                     const svc = services.find((s) => s.id === it.serviceId);
@@ -1169,31 +1028,20 @@ export default function BookingFlow() {
                     const unit = svc?.price ?? 0;
                     const qty = Math.max(1, it.quantity || 1);
                     return (
-                      <div
-                        key={it.id}
-                        className="flex items-center justify-between text-sm"
-                      >
+                      <div key={it.id} className="flex items-center justify-between text-sm">
                         <div className="text-gray-700">
                           {name} × {qty}
                         </div>
-                        <div className="font-semibold text-gray-900">
-                          ${(unit * qty).toFixed(2)}
-                        </div>
+                        <div className="font-semibold text-gray-900">${(unit * qty).toFixed(2)}</div>
                       </div>
                     );
                   })}
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between">
-                  <div className="text-gray-700 font-semibold">
-                    {isFR ? "Total" : "Total"}
-                  </div>
-                  <div className="text-blue-700 text-xl font-bold">
-                    ${itemsTotal.toFixed(2)}
-                  </div>
+                  <div className="text-gray-700 font-semibold">{isFR ? "Total" : "Total"}</div>
+                  <div className="text-blue-700 text-xl font-bold">${itemsTotal.toFixed(2)}</div>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {isFR ? "TVH 13% peut s’appliquer." : "13% HST may apply."}
-                </div>
+                <div className="text-xs text-gray-500 mt-1">{isFR ? "TVH 13% peut s’appliquer." : "13% HST may apply."}</div>
               </div>
 
               <div className="border border-gray-200 rounded-xl p-4">
@@ -1205,22 +1053,14 @@ export default function BookingFlow() {
                     className="mt-1"
                   />
                   <div>
-                    <div className="text-sm text-gray-900 font-medium">
-                      {text.authLabel}
-                    </div>
+                    <div className="text-sm text-gray-900 font-medium">{text.authLabel}</div>
                     <div className="text-xs text-gray-600 mt-1">
                       {text.authHint}{" "}
-                      <Link
-                        href={`/terms?lang=${lang}`}
-                        className="text-blue-600 hover:underline"
-                      >
+                      <Link href={`/terms?lang=${lang}`} className="text-blue-600 hover:underline">
                         {text.terms}
                       </Link>{" "}
                       ·{" "}
-                      <Link
-                        href={`/privacy?lang=${lang}`}
-                        className="text-blue-600 hover:underline"
-                      >
+                      <Link href={`/privacy?lang=${lang}`} className="text-blue-600 hover:underline">
                         {text.privacy}
                       </Link>
                     </div>
