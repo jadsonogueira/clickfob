@@ -1,4 +1,4 @@
-// middleware.ts (trecho relevante)
+// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -7,6 +7,12 @@ const ADMIN_COOKIE_NAME = "clickfob_admin";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // ✅ NÃO proteger a página de login
+  if (pathname === "/admin/login") {
+    return NextResponse.next();
+  }
+
+  // ✅ Proteger somente o dashboard/admin real
   if (pathname.startsWith("/admin")) {
     const cookie = req.cookies.get(ADMIN_COOKIE_NAME)?.value || "";
     const expected = String(process.env.ADMIN_DASHBOARD_KEY || "").trim();
