@@ -23,6 +23,9 @@ export default function Header() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
+  // ✅ Ultra minimal landing: hide global header on /fob-copy
+  if ((pathname || "").startsWith("/fob-copy")) return null;
+
   const lang = useMemo(() => getLang(searchParams), [searchParams]);
   const isFR = lang === "fr";
 
