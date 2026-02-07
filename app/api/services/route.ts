@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type ServiceDTO = {
-  id: string;       // ex: "fob-lf"
+  id: string;       // "fob-lf" (vem do serviceId no banco)
   name: string;
   price: number;
   active: boolean;  // compat com seu front atual
@@ -14,20 +14,10 @@ type ServiceDTO = {
 };
 
 const DEFAULT_SERVICES = [
-  { id: "fob-lf", name: "Fob Low Frequency (LF)", price: 35, enabled: true, sortOrder: 1 },
-  { id: "fob-hf", name: "Fob High Frequency (HF)", price: 60, enabled: true, sortOrder: 2 },
-  { id: "garage-remote", name: "Garage Remote", price: 80, enabled: true, sortOrder: 3 },
+  { serviceId: "fob-lf", name: "Fob Low Frequency (LF)", price: 35, enabled: true, sortOrder: 1 },
+  { serviceId: "fob-hf", name: "Fob High Frequency (HF)", price: 60, enabled: true, sortOrder: 2 },
+  { serviceId: "garage-remote", name: "Garage Remote", price: 80, enabled: true, sortOrder: 3 },
 ];
-
-function toDTO(s: any): ServiceDTO {
-  return {
-    id: s.id, // ✅ aqui é o campo correto do Prisma model
-    name: s.name,
-    price: s.price,
-    active: s.enabled,
-    sortOrder: s.sortOrder,
-  };
-}
 
 export async function GET() {
   try {
@@ -35,33 +25,25 @@ export async function GET() {
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
 
-    // ✅ Se não tem nada no banco, cria o catálogo padrão (seed)
+    // ✅ Seed automático se estiver vazio
     if (!rows || rows.length === 0) {
       try {
         await prisma.serviceCatalog.createMany({
-          data: DEFAULT_SERVICES.map((s) => ({
-            id: s.id,
-            name: s.name,
-            price: s.price,
-            enabled: s.enabled,
-            sortOrder: s.sortOrder,
-          })),
-          // se já existir algum id repetido, não quebra
+          data: DEFAULT_SERVICES,
           skipDuplicates: true,
         });
 
-        // refaz o fetch
         rows = await prisma.serviceCatalog.findMany({
           orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         });
       } catch (seedErr) {
         console.error("ServiceCatalog seed error:", seedErr);
 
-        // fallback: não deixa o front quebrar
+        // fallback não quebra o front
         return NextResponse.json({
           success: true,
           services: DEFAULT_SERVICES.map((s) => ({
-            id: s.id,
+            id: s.serviceId,
             name: s.name,
             price: s.price,
             active: s.enabled,
@@ -71,12 +53,15 @@ export async function GET() {
       }
     }
 
-    const services: ServiceDTO[] = rows.map(toDTO);
+    const services: ServiceDTO[] = rows.map((s) => ({
+      id: s.serviceId,        // ✅ aqui é o certo no seu schema
+      name: s.name,
+      price: s.price,
+      active: s.enabled,      // front usa "active"
+      sortOrder: s.sortOrder,
+    }));
 
-    return NextResponse.json({
-      success: true,
-      services,
-    });
+    return NextResponse.json({ success: true, services });
   } catch (err) {
     console.error("GET /api/services error:", err);
     return NextResponse.json(
