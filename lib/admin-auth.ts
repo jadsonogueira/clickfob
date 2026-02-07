@@ -25,6 +25,7 @@ function sign(data: string) {
 }
 
 export function createAdminSessionToken(ttlSeconds = 60 * 60 * 8) {
+  // Se a env estiver faltando, melhor estourar aqui (no login) do que no middleware
   const now = Math.floor(Date.now() / 1000);
   const exp = now + ttlSeconds;
   const payload = `admin.${exp}`;
@@ -33,29 +34,34 @@ export function createAdminSessionToken(ttlSeconds = 60 * 60 * 8) {
 }
 
 export function verifyAdminSessionToken(token: string | undefined | null) {
-  if (!token) return { ok: false as const, reason: "missing" };
-  const parts = token.split(".");
-  if (parts.length !== 3) return { ok: false as const, reason: "format" };
+  try {
+    if (!token) return { ok: false as const, reason: "missing" };
+    const parts = token.split(".");
+    if (parts.length !== 3) return { ok: false as const, reason: "format" };
 
-  const [role, expStr, sig] = parts;
-  if (role !== "admin") return { ok: false as const, reason: "role" };
+    const [role, expStr, sig] = parts;
+    if (role !== "admin") return { ok: false as const, reason: "role" };
 
-  const exp = Number(expStr);
-  if (!Number.isFinite(exp)) return { ok: false as const, reason: "exp" };
+    const exp = Number(expStr);
+    if (!Number.isFinite(exp)) return { ok: false as const, reason: "exp" };
 
-  const now = Math.floor(Date.now() / 1000);
-  if (now > exp) return { ok: false as const, reason: "expired" };
+    const now = Math.floor(Date.now() / 1000);
+    if (now > exp) return { ok: false as const, reason: "expired" };
 
-  const payload = `${role}.${expStr}`;
-  const expected = sign(payload);
+    const payload = `${role}.${expStr}`;
+    const expected = sign(payload);
 
-  // timing-safe compare
-  const a = Buffer.from(expected);
-  const b = Buffer.from(sig);
-  if (a.length !== b.length) return { ok: false as const, reason: "sig" };
-  if (!crypto.timingSafeEqual(a, b)) return { ok: false as const, reason: "sig" };
+    // timing-safe compare
+    const a = Buffer.from(expected);
+    const b = Buffer.from(sig);
+    if (a.length !== b.length) return { ok: false as const, reason: "sig" };
+    if (!crypto.timingSafeEqual(a, b)) return { ok: false as const, reason: "sig" };
 
-  return { ok: true as const };
+    return { ok: true as const };
+  } catch (err) {
+    // Aqui é o pulo do gato: se faltar ADMIN_DASHBOARD_KEY, não derruba /admin com 500.
+    return { ok: false as const, reason: "secret" };
+  }
 }
 
 export const ADMIN_COOKIE_NAME = COOKIE_NAME;
