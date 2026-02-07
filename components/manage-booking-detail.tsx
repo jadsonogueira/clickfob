@@ -20,15 +20,17 @@ interface Booking {
   orderNumber: string;
   serviceType: string;
   servicePrice: number;
-  items?: Array<{
-    serviceId?: string;
-    serviceName?: string;
-    unitPrice?: number;
-    quantity?: number;
-    label?: string;
-    photoFrontUrl?: string;
-    photoBackUrl?: string;
-  }> | null;
+  items?:
+    | Array<{
+        serviceId?: string;
+        serviceName?: string;
+        unitPrice?: number;
+        quantity?: number;
+        label?: string;
+        photoFrontUrl?: string;
+        photoBackUrl?: string;
+      }>
+    | null;
   totalPrice?: number | null;
   bookingDate: string;
   bookingTime: string;
@@ -162,19 +164,29 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
   };
 
   // ✅ URLs prontas e seguras para render
-  const frontUrl = useMemo(() => normalizeImageUrl(booking?.photoFrontUrl), [booking?.photoFrontUrl, normalizeImageUrl]);
-  const backUrl = useMemo(() => normalizeImageUrl(booking?.photoBackUrl), [booking?.photoBackUrl, normalizeImageUrl]);
+  const frontUrl = useMemo(
+    () => normalizeImageUrl(booking?.photoFrontUrl),
+    [booking?.photoFrontUrl, normalizeImageUrl]
+  );
+  const backUrl = useMemo(
+    () => normalizeImageUrl(booking?.photoBackUrl),
+    [booking?.photoBackUrl, normalizeImageUrl]
+  );
 
-  const hasItems = Array.isArray(booking?.items) && (booking?.items?.length || 0) > 0;
+  // ✅ Evita "booking possibly null" no JSX
+  const items = useMemo(() => (Array.isArray(booking?.items) ? booking!.items! : []), [booking?.items]);
+  const hasItems = items.length > 0;
+
   const computedTotal = useMemo(() => {
     if (typeof booking?.totalPrice === "number") return booking.totalPrice;
     if (!hasItems) return booking?.servicePrice || 0;
-    return (booking?.items || []).reduce((sum, it) => {
+
+    return items.reduce((sum, it) => {
       const unit = Number(it?.unitPrice || 0);
       const qty = Math.max(1, Number(it?.quantity || 1));
       return sum + unit * qty;
     }, 0);
-  }, [booking?.totalPrice, booking?.servicePrice, booking?.items, hasItems]);
+  }, [booking?.totalPrice, booking?.servicePrice, items, hasItems]);
 
   if (isLoading) {
     return (
@@ -242,21 +254,23 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
                 <div className="text-right">
                   <p className="text-sm text-gray-500">Total</p>
                   <p className="text-2xl font-bold text-blue-600">
-                    ${((booking?.totalPrice ?? booking?.servicePrice) || 0).toFixed?.(2) || "0.00"}
+                    ${computedTotal.toFixed(2)}
                   </p>
                 </div>
               </div>
 
-              {Array.isArray(booking?.items) && booking.items.length > 0 && (
+              {hasItems && (
                 <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
                   <p className="text-sm text-gray-500">Items</p>
-                  {booking.items.map((it, idx) => {
+                  {items.map((it, idx) => {
                     const name = it?.label || it?.serviceName || `Item ${idx + 1}`;
                     const qty = Math.max(1, Number(it?.quantity || 1));
                     const unit = Number(it?.unitPrice || 0);
                     return (
                       <div key={`${idx}_${name}`} className="flex items-center justify-between text-sm">
-                        <div className="text-gray-800">{name} × {qty}</div>
+                        <div className="text-gray-800">
+                          {name} × {qty}
+                        </div>
                         <div className="font-semibold text-gray-900">${(unit * qty).toFixed(2)}</div>
                       </div>
                     );
@@ -293,9 +307,7 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
               <div>
                 <p className="text-sm text-gray-500">Service Address</p>
                 <p className="font-medium text-gray-900">{booking?.customerAddress}</p>
-                {booking?.customerUnit && (
-                  <p className="text-gray-600">Unit/Buzzer: {booking.customerUnit}</p>
-                )}
+                {booking?.customerUnit && <p className="text-gray-600">Unit/Buzzer: {booking.customerUnit}</p>}
               </div>
             </div>
 
@@ -306,9 +318,9 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
                 <p className="font-medium text-gray-900">Uploaded Photos</p>
               </div>
 
-              {Array.isArray(booking?.items) && booking.items.length > 0 ? (
+              {hasItems ? (
                 <div className="space-y-4">
-                  {booking.items.map((it, idx) => {
+                  {items.map((it, idx) => {
                     const name = it?.label || it?.serviceName || `Item ${idx + 1}`;
                     const f = normalizeImageUrl(it?.photoFrontUrl);
                     const b = normalizeImageUrl(it?.photoBackUrl);
@@ -316,9 +328,7 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
                       <div key={`${idx}_${name}`} className="bg-white rounded-xl border border-gray-200 p-4">
                         <div className="flex items-center justify-between mb-3">
                           <div className="font-semibold text-gray-900">{name}</div>
-                          <div className="text-sm text-gray-600">
-                            × {Math.max(1, Number(it?.quantity || 1))}
-                          </div>
+                          <div className="text-sm text-gray-600">× {Math.max(1, Number(it?.quantity || 1))}</div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -364,7 +374,6 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
-                  {/* Front */}
                   <div>
                     <p className="text-sm text-gray-500 mb-2">Front</p>
                     {frontUrl ? (
@@ -383,7 +392,6 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
                     )}
                   </div>
 
-                  {/* Back */}
                   <div>
                     <p className="text-sm text-gray-500 mb-2">Back</p>
                     {backUrl ? (
@@ -465,16 +473,13 @@ export default function ManageBookingDetail({ orderNumber }: { orderNumber: stri
                     <CheckCircle className="text-green-600" size={24} />
                     <div>
                       <p className="font-semibold text-green-800">Request Submitted!</p>
-                      <p className="text-sm text-green-700">
-                        We will contact you shortly to discuss the changes.
-                      </p>
+                      <p className="text-sm text-green-700">We will contact you shortly to discuss the changes.</p>
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Optional: show error below if exists */}
             {error && booking && (
               <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
                 {error}
