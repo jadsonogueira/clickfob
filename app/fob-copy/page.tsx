@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 const PHONE_E164 = "+14167707036"; // ClickFob
 
@@ -28,7 +29,7 @@ export default function FobCopyLandingPage() {
   );
 
   return (
-    <div className="min-h-[calc(100vh-0px)] bg-white">
+    <div className="min-h-screen bg-white">
       <div className="mx-auto max-w-xl px-6 py-14 sm:py-20">
         <div className="text-sm font-semibold tracking-tight text-gray-900">
           ClickFob
@@ -73,7 +74,16 @@ export default function FobCopyLandingPage() {
             Text to get started
           </a>
 
-        
+          {/* Secondary path */}
+          <div className="mt-4 text-center text-xs text-gray-500">
+            Prefer more details?{" "}
+            <Link
+              href="/"
+              className="underline hover:text-gray-700 transition"
+            >
+              Visit our full website
+            </Link>
+          </div>
         </div>
 
         <div className="mt-10 text-xs text-gray-500">
