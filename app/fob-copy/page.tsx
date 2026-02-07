@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 const PHONE_E164 = "+14167707036"; // ClickFob
 
+// ✅ Link externo do site completo (use seu domínio quando estiver pronto)
+const FULL_SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+  "https://clickfob.onrender.com";
+
 function buildSmsLink(body: string) {
-  // iOS supports: sms:+1416...?body=...
   const encoded = encodeURIComponent(body);
   return `sms:${PHONE_E164}?&body=${encoded}`;
 }
@@ -27,6 +30,9 @@ export default function FobCopyLandingPage() {
   const smsHref = buildSmsLink(
     "Hi! I need an extra condo fob copy. What do you need from me?"
   );
+
+  // opcional: já levar pra home em inglês
+  const fullSiteHref = `${FULL_SITE_URL}/?lang=en`;
 
   return (
     <div className="min-h-screen bg-white">
@@ -74,15 +80,17 @@ export default function FobCopyLandingPage() {
             Text to get started
           </a>
 
-          {/* Secondary path */}
+          {/* ✅ Secondary path: external link */}
           <div className="mt-4 text-center text-xs text-gray-500">
             Prefer more details?{" "}
-            <Link
-              href="/"
+            <a
+              href={fullSiteHref}
+              target="_blank"
+              rel="noopener noreferrer"
               className="underline hover:text-gray-700 transition"
             >
               Visit our full website
-            </Link>
+            </a>
           </div>
         </div>
 
