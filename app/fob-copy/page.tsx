@@ -78,7 +78,7 @@ export default function FobCopyLandingPage() {
           <div className="mt-4 text-center text-xs text-gray-500">
             Prefer more details?{" "}
             <Link
-              href="https://clickfob.onrender.com/?lang=en"
+              href="/"
               className="underline hover:text-gray-700 transition"
             >
               Visit our full website
