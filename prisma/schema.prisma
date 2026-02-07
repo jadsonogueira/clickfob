@@ -8,31 +8,47 @@ datasource db {
 }
 
 model Booking {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  orderNumber     String   @unique @map("order_number")
-  serviceType     String   @map("service_type")
-  servicePrice    Float    @map("service_price")
-  bookingDate     DateTime @map("booking_date")
-  bookingTime     String   @map("booking_time")
-  customerName    String   @map("customer_name")
-  customerAddress String   @map("customer_address")
-  customerUnit    String?  @map("customer_unit")
-  customerEmail   String   @map("customer_email")
-  customerWhatsapp String  @map("customer_whatsapp")
-  additionalNotes String?  @map("additional_notes")
-  photoFrontUrl   String   @map("photo_front_url")
-  photoBackUrl    String   @map("photo_back_url")
-  photoFrontPublic Boolean @default(true) @map("photo_front_public")
-  photoBackPublic  Boolean @default(true) @map("photo_back_public")
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderNumber       String   @unique @map("order_number")
+  serviceType       String   @map("service_type")
+  servicePrice      Float    @map("service_price")
+  bookingDate       DateTime @map("booking_date")
+  bookingTime       String   @map("booking_time")
+  customerName      String   @map("customer_name")
+  customerAddress   String   @map("customer_address")
+  customerUnit      String?  @map("customer_unit")
+  customerEmail     String   @map("customer_email")
+  customerWhatsapp  String   @map("customer_whatsapp")
+  additionalNotes   String?  @map("additional_notes")
 
-  // ✅ Multi-item support (1 order can contain multiple item types and quantities)
-  // Stored as JSON for backwards compatibility.
-  // Example: [{ serviceId, serviceName, unitPrice, quantity, label, photoFrontUrl, photoBackUrl, extraPhotoUrls }]
-  items        Json?   @map("items")
-  totalPrice   Float?  @map("total_price")
-  status          String   @default("pending")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  photoFrontUrl     String   @map("photo_front_url")
+  photoBackUrl      String   @map("photo_back_url")
+  photoFrontPublic  Boolean  @default(true) @map("photo_front_public")
+  photoBackPublic   Boolean  @default(true) @map("photo_back_public")
+
+  // ✅ Multi-item support
+  items        Json?    @map("items")
+  totalPrice   Float?   @map("total_price")
+
+  status       String   @default("pending")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("bookings")
+}
+
+//
+// ✅ Catálogo de serviços (novo)
+//
+model ServiceCatalog {
+  id        String   @id          // ex: "fob-lf", "fob-hf", "garage-remote"
+  name      String
+  price     Float
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("service_catalog")
 }
