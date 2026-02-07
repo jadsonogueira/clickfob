@@ -16,6 +16,9 @@ export default function Footer() {
   const sp = useSearchParams();
   const pathname = usePathname();
 
+  // ✅ Ultra minimal landing: hide global footer on /fob-copy
+  if ((pathname || "").startsWith("/fob-copy")) return null;
+
   const lang = useMemo(() => getLang(sp), [sp]);
   const isFR = lang === "fr";
 
@@ -96,10 +99,16 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-4">{t.quickLinks}</h4>
             <div className="space-y-2">
-              <Link href={href("/book")} className="block text-gray-400 hover:text-blue-400 transition-colors">
+              <Link
+                href={href("/book")}
+                className="block text-gray-400 hover:text-blue-400 transition-colors"
+              >
                 {t.book}
               </Link>
-              <Link href={href("/manage")} className="block text-gray-400 hover:text-blue-400 transition-colors">
+              <Link
+                href={href("/manage")}
+                className="block text-gray-400 hover:text-blue-400 transition-colors"
+              >
                 {t.manage}
               </Link>
               <Link
@@ -108,7 +117,10 @@ export default function Footer() {
               >
                 {t.compatibility}
               </Link>
-              <Link href={href("/terms")} className="block text-gray-400 hover:text-blue-400 transition-colors">
+              <Link
+                href={href("/terms")}
+                className="block text-gray-400 hover:text-blue-400 transition-colors"
+              >
                 {t.terms}
               </Link>
               <Link
