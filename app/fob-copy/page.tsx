@@ -73,9 +73,7 @@ export default function FobCopyLandingPage() {
             Text to get started
           </a>
 
-          <div className="mt-3 text-center text-xs text-gray-500">
-            Or call: {PHONE_E164}
-          </div>
+        
         </div>
 
         <div className="mt-10 text-xs text-gray-500">
