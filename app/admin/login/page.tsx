@@ -2,12 +2,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const sp = useSearchParams();
-
   const nextPath = useMemo(() => sp.get("next") || "/admin", [sp]);
 
   const [key, setKey] = useState("");
@@ -16,12 +14,16 @@ export default function AdminLoginPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+
     try {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // ✅ garante que o Set-Cookie seja aceito/grave no browser
+        credentials: "include",
         body: JSON.stringify({ key }),
       });
+
       const json = await res.json();
 
       if (!json?.ok) {
@@ -29,8 +31,8 @@ export default function AdminLoginPage() {
         return;
       }
 
-      router.push(nextPath);
-      router.refresh();
+      // ✅ navegação "hard" para garantir que o middleware leia o cookie recém setado
+      window.location.href = nextPath;
     } finally {
       setLoading(false);
     }
