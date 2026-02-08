@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Key, Radio, Settings, ArrowRight } from "lucide-react";
+import { Key, Radio, Settings, ArrowRight, AlertCircle } from "lucide-react";
 
 type Lang = "en" | "fr";
 
@@ -21,6 +21,7 @@ type UiService = {
   name: string;
   price: number;
   icon: any;
+  active: boolean; // ✅ precisamos manter isso no UI
 };
 
 const ICON_BY_ID: Record<string, any> = {
@@ -53,14 +54,13 @@ export default function ServicesSection({ lang }: { lang: Lang }) {
         const apiList: ServiceApiItem[] =
           data?.services || data?.data?.services || [];
 
-        // ✅ só serviços ativos (considera active OU enabled)
-        const activeOnly = (apiList || []).filter(isServiceActive);
-
-        const normalized: UiService[] = activeOnly.map((s) => ({
+        // ✅ NÃO filtra mais! Mantém também os desativados para "rachurar"
+        const normalized: UiService[] = (apiList || []).map((s) => ({
           id: String(s.id),
           name: String(s.name),
           price: Number(s.price || 0),
           icon: ICON_BY_ID[String(s.id)] || Key,
+          active: isServiceActive(s),
         }));
 
         if (!cancelled) setServices(normalized);
@@ -85,6 +85,7 @@ export default function ServicesSection({ lang }: { lang: Lang }) {
         subtitle:
           "Duplication de porte-clés compatibles et programmation de télécommandes.",
         book: "Réserver",
+        unavailable: "Indisponible",
         empty: "Aucun service disponible pour le moment.",
       }
     : {
@@ -92,6 +93,7 @@ export default function ServicesSection({ lang }: { lang: Lang }) {
         subtitle:
           "Compatible key fob duplication and garage remote programming.",
         book: "Book Now",
+        unavailable: "Unavailable",
         empty: "No services available at the moment.",
       };
 
@@ -118,36 +120,76 @@ export default function ServicesSection({ lang }: { lang: Lang }) {
         </div>
 
         {services.length === 0 ? (
-          <div className="text-center text-gray-500">{t.empty}</div>
+          <div className="text-center text-gray-500 flex items-center justify-center gap-2">
+            <AlertCircle size={16} /> {t.empty}
+          </div>
         ) : (
           <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-            {services.map((service) => (
-              <div
-                key={service.id}
-                className="bg-gray-50 rounded-2xl shadow-sm hover:shadow-md transition-all p-6 lg:p-8 flex flex-col border"
-              >
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="p-3 rounded-xl bg-blue-100 text-blue-600">
-                    <service.icon size={28} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-lg">
-                      {service.name}
-                    </h3>
-                    <p className="text-2xl font-bold text-blue-600">
-                      ${service.price.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
+            {services.map((service) => {
+              const disabled = !service.active;
 
-                <Link
-                  href={`${withLang("/book")}&service=${service.id}`}
-                  className="mt-auto w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold text-center transition-all flex items-center justify-center gap-2"
+              return (
+                <div
+                  key={service.id}
+                  className={`rounded-2xl shadow-sm transition-all p-6 lg:p-8 flex flex-col border relative overflow-hidden ${
+                    disabled
+                      ? "bg-gray-50 opacity-75"
+                      : "bg-gray-50 hover:shadow-md"
+                  }`}
                 >
-                  {t.book} <ArrowRight size={18} />
-                </Link>
-              </div>
-            ))}
+                  {/* ✅ “rachurado” */}
+                  {disabled && (
+                    <div
+                      className="absolute inset-0 pointer-events-none opacity-30"
+                      style={{
+                        backgroundImage:
+                          "repeating-linear-gradient(135deg, rgba(0,0,0,0.15) 0, rgba(0,0,0,0.15) 6px, transparent 6px, transparent 14px)",
+                      }}
+                    />
+                  )}
+
+                  <div className="flex items-center gap-4 mb-4 relative">
+                    <div className="p-3 rounded-xl bg-blue-100 text-blue-600">
+                      <service.icon size={28} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-gray-900 text-lg">
+                          {service.name}
+                        </h3>
+
+                        {disabled && (
+                          <span className="text-xs font-bold px-2 py-1 rounded-full bg-gray-200 text-gray-700">
+                            {t.unavailable}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-2xl font-bold text-blue-600">
+                        ${service.price.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {disabled ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="mt-auto w-full bg-gray-200 text-gray-500 py-3 rounded-xl font-semibold text-center cursor-not-allowed relative"
+                    >
+                      {t.unavailable}
+                    </button>
+                  ) : (
+                    <Link
+                      href={`${withLang("/book")}&service=${service.id}`}
+                      className="mt-auto w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-semibold text-center transition-all flex items-center justify-center gap-2 relative"
+                    >
+                      {t.book} <ArrowRight size={18} />
+                    </Link>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
