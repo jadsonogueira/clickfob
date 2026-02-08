@@ -87,7 +87,7 @@ export default function Footer() {
                 <span>+1 (416) 770-7036</span>
               </a>
               <a
-                href="mailto:clickfob@gmail.com"
+                href="mailto:clickfobtoronto@gmail.com"
                 className="flex items-center gap-3 text-gray-400 hover:text-blue-400 transition-colors"
               >
                 <Mail size={18} />
