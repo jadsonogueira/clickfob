@@ -68,7 +68,7 @@ export default function ContactPage({
         <section className="bg-white rounded-2xl shadow-sm border p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">{t.email}</h2>
           <a
-            href="mailto:clickfob@gmail.com"
+            href="mailto:clickfobtoronto@gmail.com"
             className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-semibold"
           >
             <Mail size={18} /> clickfob@gmail.com
