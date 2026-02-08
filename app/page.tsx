@@ -7,6 +7,10 @@ import {
   ArrowRight,
   Truck,
   Store,
+  Camera,
+  Search,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 
 type Lang = "en" | "fr";
@@ -59,20 +63,15 @@ export default function HomePage({
         deliveryd: "Livraison disponible à Toronto & GTA.",
         faqTitle: "FAQ",
         q1: "Copiez-vous les porte-clés de tous les immeubles?",
-        a1:
-          "Nous dupliquons les porte-clés compatibles. Le client doit être un utilisateur autorisé.",
+        a1: "Nous dupliquons les porte-clés compatibles. Le client doit être un utilisateur autorisé.",
         q2: "Avez-vous accès au système du condo?",
-        a2:
-          "Non. Nous dupliquons uniquement la crédential présentée. Aucun accès aux systèmes/bases de données.",
+        a2: "Non. Nous dupliquons uniquement la crédential présentée. Aucun accès aux systèmes/bases de données.",
         q3: "La copie est-elle garantie?",
-        a3:
-          "Non. Certains porte-clés sont cryptés ou restreints et ne peuvent pas être copiés.",
+        a3: "Non. Certains porte-clés sont cryptés ou restreints et ne peuvent pas être copiés.",
         q4: "Offrez-vous des remboursements?",
-        a4:
-          "Aucun remboursement n’est offert après une tentative de duplication. Voir Conditions.",
+        a4: "Aucun remboursement n’est offert après une tentative de duplication. Voir Conditions.",
         ctaBottomTitle: "Prêt à commencer?",
-        ctaBottomText:
-          "Commencez votre commande et téléversez des photos pour vérifier la compatibilité.",
+        ctaBottomText: "Commencez votre commande et téléversez des photos pour vérifier la compatibilité.",
         getStarted: "Commencer",
       }
     : {
@@ -106,168 +105,179 @@ export default function HomePage({
         deliveryd: "Delivery available across Toronto & the GTA.",
         faqTitle: "FAQ",
         q1: "Do you copy fobs for any building?",
-        a1:
-          "We duplicate compatible key fobs when supported. The client must be an authorized user.",
+        a1: "We duplicate compatible key fobs when supported. The client must be an authorized user.",
         q2: "Do you need access to my condo system?",
-        a2:
-          "No. We only duplicate the credential presented. No access to building systems/databases.",
+        a2: "No. We only duplicate the credential presented. No access to building systems/databases.",
         q3: "Is duplication guaranteed?",
-        a3:
-          "No. Some credentials are encrypted or restricted and cannot be duplicated.",
+        a3: "No. Some credentials are encrypted or restricted and cannot be duplicated.",
         q4: "Do you offer refunds?",
         a4: "No refunds after a duplication attempt has been made. See Terms.",
         ctaBottomTitle: "Ready to start?",
-        ctaBottomText:
-          "Start your order and upload photos so we can verify compatibility.",
+        ctaBottomText: "Start your order and upload photos so we can verify compatibility.",
         getStarted: "Get Started",
       };
 
   const withLang = (path: string) => `${path}?lang=${lang}`;
 
-  const trust = [
-    { icon: Zap, title: t.trust1, desc: t.trust1d },
-    { icon: Shield, title: t.trust2, desc: t.trust2d },
-    { icon: MapPin, title: t.trust3, desc: t.trust3d },
-  ];
-
-  const steps = [
-    { title: t.step1, desc: t.step1d },
-    { title: t.step2, desc: t.step2d },
-    { title: t.step3, desc: t.step3d },
-    { title: t.step4, desc: t.step4d },
-  ];
-
   return (
-    <div className="flex flex-col">
-      {/* Hero */}
-      <section className="relative bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white py-20 lg:py-28 overflow-hidden">
-        <div className="absolute inset-0 opacity-50 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')]" />
+    <div className="flex flex-col bg-white text-slate-900 font-sans tracking-tight">
+      {/* Hero Section - Estilo Tech Bold */}
+      <section className="relative pt-20 pb-24 lg:pt-32 lg:pb-36 bg-slate-950 text-white overflow-hidden">
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-blue-600/10 skew-x-12 translate-x-1/3" />
         <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
-          <div className="text-center max-w-3xl mx-auto">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
+          <div className="max-w-4xl">
+            <div className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-400 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-8 border border-blue-500/30">
+              <Zap className="w-3 h-3 fill-current" /> {t.trust1}
+            </div>
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-8 leading-[0.9] uppercase italic">
               {t.heroTitle1}
               <br />
-              <span className="text-blue-300">{t.heroTitle2}</span>
+              <span className="text-blue-500">{t.heroTitle2}</span>
             </h1>
-            <p className="text-xl text-blue-100 mb-8">{t.heroSubtitle}</p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <p className="text-xl md:text-2xl text-slate-400 mb-12 max-w-2xl leading-relaxed">
+              {t.heroSubtitle}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
               <Link
                 href={withLang("/book")}
-                className="bg-white text-blue-700 hover:bg-blue-50 px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl inline-flex items-center justify-center gap-2"
+                className="bg-white text-black hover:bg-blue-500 hover:text-white px-10 py-5 rounded-2xl font-black text-xl transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 uppercase tracking-tighter"
               >
-                {t.ctaStart} <span className="inline-flex"><ArrowRight size={20} /></span>
+                {t.ctaStart} <ArrowRight size={24} />
               </Link>
               <Link
                 href={withLang("/compatibility")}
-                className="bg-blue-600/30 hover:bg-blue-600/40 border border-white/30 text-white px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl inline-flex items-center justify-center gap-2"
+                className="bg-transparent border-2 border-slate-800 hover:border-blue-500 text-white px-10 py-5 rounded-2xl font-black text-xl transition-all flex items-center justify-center gap-3 uppercase tracking-tighter"
               >
-                {t.ctaCompat}
+                <Search size={22} /> {t.ctaCompat}
               </Link>
             </div>
-            <p className="text-blue-100/80 text-sm mt-4">{t.disclaimer}</p>
+            <p className="text-slate-500 text-xs mt-8 font-bold uppercase tracking-widest">
+              {t.disclaimer}
+            </p>
           </div>
         </div>
       </section>
 
-      {/* Trust */}
-      <section className="py-12 bg-white border-b">
+      {/* Trust Badges - Minimalist Dark */}
+      <section className="py-10 bg-slate-900 border-y border-slate-800 text-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {trust.map((prop, idx) => (
-              <div key={idx} className="text-center p-4">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-100 text-blue-600 mb-3">
-                  <prop.icon size={28} />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            {[
+              { icon: Clock, title: t.trust1, desc: t.trust1d },
+              { icon: Shield, title: t.trust2, desc: t.trust2d },
+              { icon: MapPin, title: t.trust3, desc: t.trust3d },
+            ].map((prop, idx) => (
+              <div key={idx} className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center text-blue-400 shrink-0">
+                  <prop.icon size={24} />
                 </div>
-                <h3 className="font-bold text-gray-900">{prop.title}</h3>
-                <p className="text-sm text-gray-500">{prop.desc}</p>
+                <div>
+                  <h3 className="font-black uppercase text-sm tracking-widest">{prop.title}</h3>
+                  <p className="text-xs text-slate-400 font-bold">{prop.desc}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="py-16 bg-gray-50 border-b">
+      {/* How it works - Step-by-Step Tech Layout */}
+      <section className="py-24 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-3">
+          <div className="mb-16">
+            <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter italic">
               {t.howTitle}
             </h2>
           </div>
-          <div className="grid md:grid-cols-4 gap-6">
-            {steps.map((s, idx) => (
-              <div key={idx} className="bg-white rounded-2xl shadow-sm border p-6">
-                <div className="text-blue-600 font-bold text-sm mb-2">{idx + 1}</div>
-                <h3 className="font-semibold text-gray-900 mb-2">{s.title}</h3>
-                <p className="text-sm text-gray-600">{s.desc}</p>
+          <div className="grid md:grid-cols-4 gap-4">
+            {[
+              { title: t.step1, desc: t.step1d, icon: ArrowRight },
+              { title: t.step2, desc: t.step2d, icon: Camera },
+              { title: t.step3, desc: t.step3d, icon: Search },
+              { title: t.step4, desc: t.step4d, icon: CheckCircle2 },
+            ].map((s, idx) => (
+              <div key={idx} className="group relative bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-8 hover:border-blue-500 transition-all hover:shadow-2xl hover:shadow-blue-100">
+                <div className="text-5xl font-black text-slate-200 mb-6 group-hover:text-blue-100 transition-colors">0{idx + 1}</div>
+                <div className="mb-4 text-blue-600">
+                  <s.icon size={32} />
+                </div>
+                <h3 className="text-xl font-black uppercase mb-3 leading-tight">{s.title}</h3>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed">{s.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Services */}
-      <ServicesSection lang={lang} />
+      {/* Services Section - Mantido original conforme solicitado */}
+      <div className="bg-slate-50 py-12">
+        <ServicesSection lang={lang} />
+      </div>
 
-      {/* Pickup & Delivery */}
-      <section className="py-16 bg-gray-50 border-t border-b">
+      {/* Pickup & Delivery - Contrast Design */}
+      <section className="py-24 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-2">
-              {t.pickupDeliveryTitle}
-            </h2>
-          </div>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl shadow-sm border p-6">
-              <div className="flex items-center gap-3 mb-2 text-blue-600">
-                <Store size={22} />
-                <h3 className="font-semibold text-gray-900">{t.pickup}</h3>
-              </div>
-              <p className="text-gray-600">{t.pickupd}</p>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="bg-slate-950 text-white rounded-[2.5rem] p-10 flex flex-col justify-between overflow-hidden relative group transition-transform hover:scale-[1.02]">
+                <Store className="absolute -right-8 -bottom-8 w-40 h-40 text-white/5 group-hover:text-blue-500/10 transition-colors" />
+                <div className="relative z-10">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center mb-6">
+                        <Store size={28} />
+                    </div>
+                    <h3 className="text-3xl font-black uppercase mb-4 italic">{t.pickup}</h3>
+                    <p className="text-slate-400 text-lg font-medium">{t.pickupd}</p>
+                </div>
             </div>
-            <div className="bg-white rounded-2xl shadow-sm border p-6">
-              <div className="flex items-center gap-3 mb-2 text-blue-600">
-                <Truck size={22} />
-                <h3 className="font-semibold text-gray-900">{t.delivery}</h3>
-              </div>
-              <p className="text-gray-600">{t.deliveryd}</p>
+            
+            <div className="bg-blue-600 text-white rounded-[2.5rem] p-10 flex flex-col justify-between overflow-hidden relative group transition-transform hover:scale-[1.02]">
+                <Truck className="absolute -right-8 -bottom-8 w-40 h-40 text-black/5 group-hover:text-white/10 transition-colors" />
+                <div className="relative z-10">
+                    <div className="w-14 h-14 rounded-2xl bg-white text-blue-600 flex items-center justify-center mb-6">
+                        <Truck size={28} />
+                    </div>
+                    <h3 className="text-3xl font-black uppercase mb-4 italic">{t.delivery}</h3>
+                    <p className="text-blue-100 text-lg font-medium">{t.deliveryd}</p>
+                </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* FAQ */}
-      <section className="py-16 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-2">{t.faqTitle}</h2>
-          </div>
-          <div className="grid md:grid-cols-2 gap-6">
+      {/* FAQ - Clean & Structured */}
+      <section className="py-24 bg-slate-50">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <h2 className="text-4xl font-black uppercase italic mb-12 text-center">{t.faqTitle}</h2>
+          <div className="space-y-4">
             {[
               { q: t.q1, a: t.a1 },
               { q: t.q2, a: t.a2 },
               { q: t.q3, a: t.a3 },
               { q: t.q4, a: t.a4 },
             ].map((item) => (
-              <div key={item.q} className="bg-gray-50 rounded-2xl border p-6">
-                <h3 className="font-semibold text-gray-900 mb-2">{item.q}</h3>
-                <p className="text-gray-700">{item.a}</p>
+              <div key={item.q} className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+                <h3 className="text-lg font-black uppercase mb-3 text-blue-600">{item.q}</h3>
+                <p className="text-slate-600 font-medium leading-relaxed">{item.a}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Bottom CTA */}
-      <section className="py-16 bg-blue-600 text-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-3xl lg:text-4xl font-bold mb-4">{t.ctaBottomTitle}</h2>
-          <p className="text-xl text-blue-100 mb-8">{t.ctaBottomText}</p>
+      {/* Final CTA - Same as Tech Page */}
+      <section className="py-24 bg-slate-950 text-white text-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-blue-600/5" />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 relative z-10">
+          <h2 className="text-5xl md:text-7xl font-black uppercase italic mb-8 tracking-tighter">
+            {t.ctaBottomTitle}
+          </h2>
+          <p className="text-xl text-slate-400 mb-12 font-medium">
+            {t.ctaBottomText}
+          </p>
           <Link
             href={withLang("/book")}
-            className="inline-flex items-center gap-2 bg-white text-blue-700 hover:bg-blue-50 px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl"
+            className="inline-flex items-center gap-4 bg-blue-600 text-white hover:bg-white hover:text-black px-12 py-6 rounded-2xl font-black text-2xl transition-all shadow-2xl shadow-blue-900/40 uppercase tracking-tighter"
           >
-            {t.getStarted} <ArrowRight size={20} />
+            {t.getStarted} <ArrowRight size={28} />
           </Link>
         </div>
       </section>
