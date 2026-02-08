@@ -34,7 +34,9 @@ export default function FobCopyLandingPage() {
       {/* Barra de Navegação Minimalista */}
       <nav className="border-b border-slate-100 py-6 px-6 bg-white/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <span className="font-black text-2xl tracking-tighter uppercase italic">ClickFob</span>
+          {/* Logo atualizada para o estilo da imagem azul */}
+          <span className="font-bold text-2xl tracking-tight text-blue-600">ClickFob</span>
+          
           <div className="flex items-center gap-2 bg-slate-900 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">
             <Zap className="w-3 h-3 fill-yellow-400 text-yellow-400" /> Toronto Service
           </div>
