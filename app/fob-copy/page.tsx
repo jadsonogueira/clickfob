@@ -166,20 +166,36 @@ export default function FobCopyLandingPage() {
         </section>
 
         {/* Footer com links de apoio */}
-        <footer className="pt-12 border-t border-slate-100 text-center md:text-left">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="text-xs text-slate-400 font-medium">
-              © {new Date().getFullYear()} ClickFob Duplication Services. <br className="md:hidden" /> Serving the GTA.
-            </div>
-            <div className="flex gap-8">
-              <a href={fullSiteHref} target="_blank" className="text-xs font-black uppercase tracking-widest hover:text-blue-600 transition-colors">Website</a>
-              <Link href={`${FULL_SITE_URL}/compatibility?lang=en`} className="text-xs font-black uppercase tracking-widest hover:text-blue-600 transition-colors text-blue-600">Full Tech List</Link>
-            </div>
-          </div>
-          <div className="mt-8 text-[10px] text-slate-300 italic uppercase tracking-widest">
-            Authorization from the owner is required. We do not bypass security protocols.
-          </div>
-        </footer>
+<footer className="pt-12 border-t border-slate-100 text-center md:text-left">
+  <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+    <div className="text-xs text-slate-400 font-medium">
+      © {new Date().getFullYear()} ClickFob Duplication Services. <br className="md:hidden" /> Serving the GTA.
+    </div>
+    <div className="flex gap-8">
+      <a 
+        href={fullSiteHref} 
+        target="_blank" 
+        rel="noopener noreferrer" 
+        className="text-xs font-black uppercase tracking-widest hover:text-blue-600 transition-colors"
+      >
+        Website
+      </a>
+      {/* Agora abrindo em nova aba da mesma forma que o Website */}
+      <a 
+        href={`${FULL_SITE_URL}/compatibility?lang=en`} 
+        target="_blank" 
+        rel="noopener noreferrer" 
+        className="text-xs font-black uppercase tracking-widest hover:text-blue-600 transition-colors text-blue-600"
+      >
+        Full Tech List
+      </a>
+    </div>
+  </div>
+  <div className="mt-8 text-[10px] text-slate-300 italic uppercase tracking-widest">
+    Authorization from the owner is required. We do not bypass security protocols.
+  </div>
+</footer>
+
       </main>
     </div>
   );
