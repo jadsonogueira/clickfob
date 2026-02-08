@@ -102,7 +102,9 @@ export default function BookingFlow() {
 
   const rawInitialService = searchParams?.get("service") || "";
   // ✅ se vier algo fora da allowlist, ignora
-  const initialService = ALLOWED_SET.has(rawInitialService) ? rawInitialService : "";
+  const initialService = ALLOWED_SET.has(rawInitialService)
+    ? rawInitialService
+    : "";
 
   const lang =
     (searchParams?.get("lang") || "en").toLowerCase() === "fr" ? "fr" : "en";
@@ -362,43 +364,69 @@ export default function BookingFlow() {
     if (currentStep === 1) {
       const hasAtLeastOne = bookingData.items.length > 0;
       const allHaveService = bookingData.items.every((it) => !!it.serviceId);
-      const allQtyValid = bookingData.items.every((it) => (it.quantity || 0) >= 1);
+      const allQtyValid = bookingData.items.every(
+        (it) => (it.quantity || 0) >= 1
+      );
 
+      // ✅ também valida se o serviceId ainda existe e está ativo
       const allServicesStillActive = bookingData.items.every((it) => {
         const svc = services.find((s) => s.id === it.serviceId);
         return !!svc && svc.active;
       });
 
-      if (!hasAtLeastOne || !allHaveService || !allQtyValid || !allServicesStillActive) {
+      if (
+        !hasAtLeastOne ||
+        !allHaveService ||
+        !allQtyValid ||
+        !allServicesStillActive
+      ) {
         newErrors.items = text.missingItems;
       }
     }
 
     if (currentStep === 2) {
-      const allHavePhotos = bookingData.items.every((it) => !!it.photoFront && !!it.photoBack);
+      const allHavePhotos = bookingData.items.every(
+        (it) => !!it.photoFront && !!it.photoBack
+      );
       if (!allHavePhotos) newErrors.photos = text.missingPhotos;
     }
 
     if (currentStep === 3) {
       if (!bookingData.selectedDate)
-        newErrors.date = isFR ? "Veuillez choisir une date" : "Please select a date";
+        newErrors.date = isFR
+          ? "Veuillez choisir une date"
+          : "Please select a date";
       if (!bookingData.selectedTime)
-        newErrors.time = isFR ? "Veuillez choisir une plage horaire" : "Please select a time slot";
+        newErrors.time = isFR
+          ? "Veuillez choisir une plage horaire"
+          : "Please select a time slot";
     }
 
     if (currentStep === 4) {
       if (!bookingData.customerName?.trim())
         newErrors.name = isFR ? "Le nom est requis" : "Name is required";
       if (!bookingData.customerAddress?.trim())
-        newErrors.address = isFR ? "L’adresse est requise" : "Address is required";
+        newErrors.address = isFR
+          ? "L’adresse est requise"
+          : "Address is required";
       if (!bookingData.customerEmail?.trim()) {
         newErrors.email = isFR ? "L’email est requis" : "Email is required";
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookingData.customerEmail)) {
-        newErrors.email = isFR ? "Format d’email invalide" : "Invalid email format";
+      } else if (
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookingData.customerEmail)
+      ) {
+        newErrors.email = isFR
+          ? "Format d’email invalide"
+          : "Invalid email format";
       }
       if (!bookingData.customerWhatsapp?.trim()) {
-        newErrors.whatsapp = isFR ? "Le numéro WhatsApp est requis" : "WhatsApp number is required";
-      } else if (!/^[+]?[0-9\s()-]{10,}$/.test(bookingData.customerWhatsapp?.replace(/\s/g, ""))) {
+        newErrors.whatsapp = isFR
+          ? "Le numéro WhatsApp est requis"
+          : "WhatsApp number is required";
+      } else if (
+        !/^[+]?[0-9\s()-]{10,}$/.test(
+          bookingData.customerWhatsapp?.replace(/\s/g, "")
+        )
+      ) {
         newErrors.whatsapp = isFR ? "Numéro invalide" : "Invalid phone number";
       }
     }
@@ -414,7 +442,6 @@ export default function BookingFlow() {
   const handleNext = () => {
     if (validateStep()) {
       setCurrentStep((prev) => Math.min(prev + 1, 5));
-      // ✅ ajuda no mobile: volta pro topo do card quando avançar
       try {
         window.scrollTo({ top: 0, behavior: "smooth" });
       } catch {}
@@ -449,6 +476,7 @@ export default function BookingFlow() {
       setErrors((prev) => ({ ...prev, authorization: text.mustAccept }));
       return;
     }
+
     if (!validateStep()) return;
 
     setIsLoading(true);
@@ -468,15 +496,21 @@ export default function BookingFlow() {
       for (const item of bookingData.items) {
         const svc = services.find((s) => s.id === item.serviceId);
         if (!svc || !svc.active) throw new Error("Invalid service in items");
-        if (!item.photoFront || !item.photoBack) throw new Error("Missing photos");
+        if (!item.photoFront || !item.photoBack)
+          throw new Error("Missing photos");
 
         const formData = new FormData();
         formData.append("front", item.photoFront);
         formData.append("back", item.photoBack);
 
-        const uploadRes = await fetch("/api/upload", { method: "POST", body: formData });
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
         const uploadData = await uploadRes.json();
-        if (!uploadData?.success) throw new Error(uploadData?.error || "Failed to upload photos");
+        if (!uploadData?.success) {
+          throw new Error(uploadData?.error || "Failed to upload photos");
+        }
 
         uploadedItems.push({
           serviceId: item.serviceId,
@@ -507,25 +541,31 @@ export default function BookingFlow() {
 
       const bookingResult = await bookingRes.json();
       if (bookingResult?.success) {
-        router.push(`/booking-success?order=${bookingResult.orderNumber}&lang=${lang}`);
+        router.push(
+          `/booking-success?order=${bookingResult.orderNumber}&lang=${lang}`
+        );
       } else {
         throw new Error(bookingResult?.error || "Failed to create booking");
       }
     } catch (error) {
       console.error("Booking error:", error);
       setErrors({
-        submit: isFR ? "Échec de la réservation. Réessayez." : "Failed to complete booking. Please try again.",
+        submit: isFR
+          ? "Échec de la réservation. Réessayez."
+          : "Failed to complete booking. Please try again.",
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const anyActiveServices = useMemo(() => services.some((s) => s.active), [services]);
+  const anyActiveServices = useMemo(
+    () => services.some((s) => s.active),
+    [services]
+  );
 
   return (
-    // ✅ padding-bottom no mobile pra não esconder o conteúdo atrás do footer fixo
-    <div className="pb-28 md:pb-0">
+    <div>
       {/* Progress Steps */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
@@ -538,7 +578,11 @@ export default function BookingFlow() {
                     : "border-gray-300 text-gray-400"
                 }`}
               >
-                {currentStep > step.id ? <Check size={18} /> : <step.icon size={18} />}
+                {currentStep > step.id ? (
+                  <Check size={18} />
+                ) : (
+                  <step.icon size={18} />
+                )}
               </div>
               {index < steps.length - 1 && (
                 <div
@@ -565,11 +609,14 @@ export default function BookingFlow() {
       </div>
 
       {/* Step Content */}
-      <div className="bg-white rounded-2xl shadow-lg p-6 lg:p-8">
+      {/* ✅ mb-10 garante espaço antes do footer do site */}
+      <div className="bg-white rounded-2xl shadow-lg p-6 lg:p-8 mb-10">
         {/* Step 1: Items */}
         {currentStep === 1 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.itemsTitle}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {text.itemsTitle}
+            </h2>
             <p className="text-gray-600 mb-6">{text.itemsSubtitle}</p>
 
             {servicesLoading ? (
@@ -580,7 +627,9 @@ export default function BookingFlow() {
             ) : services.length === 0 ? (
               <div className="mb-4 text-sm text-red-600 flex items-center gap-2">
                 <AlertCircle size={16} />
-                {isFR ? "Impossible de charger les services." : "Failed to load services."}
+                {isFR
+                  ? "Impossible de charger les services."
+                  : "Failed to load services."}
               </div>
             ) : null}
 
@@ -597,7 +646,10 @@ export default function BookingFlow() {
                 const selectedDisabled = !!svc && !svc.active;
 
                 return (
-                  <div key={item.id} className="border border-gray-200 rounded-xl p-4">
+                  <div
+                    key={item.id}
+                    className="border border-gray-200 rounded-xl p-4"
+                  >
                     <div className="flex items-center justify-between gap-3 mb-3">
                       <div className="text-sm font-semibold text-gray-800">
                         {isFR ? `Article ${idx + 1}` : `Item ${idx + 1}`}
@@ -616,18 +668,28 @@ export default function BookingFlow() {
                     <div className="grid md:grid-cols-3 gap-3">
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {text.service} <span className="text-red-500">*</span>
+                          {text.service}{" "}
+                          <span className="text-red-500">*</span>
                         </label>
 
                         <select
                           value={item.serviceId}
-                          onChange={(e) => updateItem(item.id, { serviceId: e.target.value })}
+                          onChange={(e) =>
+                            updateItem(item.id, { serviceId: e.target.value })
+                          }
                           className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">{text.selectService}</option>
+
+                          {/* ✅ mostra TODOS (permitidos), desativados ficam disabled */}
                           {services.map((s) => (
-                            <option key={s.id} value={s.id} disabled={!s.active}>
-                              {s.name} — ${s.price} {!s.active ? `(${text.unavailable})` : ""}
+                            <option
+                              key={s.id}
+                              value={s.id}
+                              disabled={!s.active}
+                            >
+                              {s.name} — ${s.price}{" "}
+                              {!s.active ? `(${text.unavailable})` : ""}
                             </option>
                           ))}
                         </select>
@@ -649,14 +711,18 @@ export default function BookingFlow() {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {text.quantity} <span className="text-red-500">*</span>
+                          {text.quantity}{" "}
+                          <span className="text-red-500">*</span>
                         </label>
                         <div className="flex items-center justify-between gap-2 border border-gray-300 rounded-xl px-3 py-2">
                           <button
                             type="button"
                             onClick={() =>
                               updateItem(item.id, {
-                                quantity: Math.max(1, (item.quantity || 1) - 1),
+                                quantity: Math.max(
+                                  1,
+                                  (item.quantity || 1) - 1
+                                ),
                               })
                             }
                             className="p-1 rounded-lg hover:bg-gray-100"
@@ -664,7 +730,9 @@ export default function BookingFlow() {
                           >
                             <Minus size={18} />
                           </button>
-                          <div className="text-lg font-semibold text-gray-900">{item.quantity || 1}</div>
+                          <div className="text-lg font-semibold text-gray-900">
+                            {item.quantity || 1}
+                          </div>
                           <button
                             type="button"
                             onClick={() =>
@@ -687,7 +755,9 @@ export default function BookingFlow() {
                       </label>
                       <input
                         value={item.label}
-                        onChange={(e) => updateItem(item.id, { label: e.target.value })}
+                        onChange={(e) =>
+                          updateItem(item.id, { label: e.target.value })
+                        }
                         placeholder={text.labelPh}
                         className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
@@ -706,8 +776,12 @@ export default function BookingFlow() {
                 <Plus size={18} /> {text.addItem}
               </button>
               <div className="text-right">
-                <div className="text-sm text-gray-500">{isFR ? "Total estimé" : "Estimated total"}</div>
-                <div className="text-xl font-bold text-blue-700">${itemsTotal.toFixed(2)}</div>
+                <div className="text-sm text-gray-500">
+                  {isFR ? "Total estimé" : "Estimated total"}
+                </div>
+                <div className="text-xl font-bold text-blue-700">
+                  ${itemsTotal.toFixed(2)}
+                </div>
               </div>
             </div>
 
@@ -719,10 +793,12 @@ export default function BookingFlow() {
           </div>
         )}
 
-        {/* Step 2 */}
+        {/* Step 2: Photos (per item) */}
         {currentStep === 2 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.photosTitle}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {text.photosTitle}
+            </h2>
             <p className="text-gray-600 mb-6">{text.photosSubtitle}</p>
 
             <div className="space-y-4">
@@ -732,17 +808,26 @@ export default function BookingFlow() {
                   item.label?.trim() ||
                   svc?.name ||
                   (isFR ? `Article ${idx + 1}` : `Item ${idx + 1}`);
-
                 return (
-                  <div key={item.id} className="border border-gray-200 rounded-xl p-4">
+                  <div
+                    key={item.id}
+                    className="border border-gray-200 rounded-xl p-4"
+                  >
                     <div className="flex items-center justify-between gap-3 mb-4">
                       <div>
-                        <div className="font-semibold text-gray-900">{title}</div>
+                        <div className="font-semibold text-gray-900">
+                          {title}
+                        </div>
                         <div className="text-xs text-gray-500">
-                          {isFR ? "Copies" : "Copies"}: <strong>{item.quantity || 1}</strong>
+                          {isFR ? "Copies" : "Copies"}:{" "}
+                          <strong>{item.quantity || 1}</strong>
                         </div>
                       </div>
-                      {svc && <div className="text-sm text-blue-700 font-bold">${svc.price.toFixed(2)} ea</div>}
+                      {svc && (
+                        <div className="text-sm text-blue-700 font-bold">
+                          ${svc.price.toFixed(2)} ea
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
@@ -750,9 +835,12 @@ export default function BookingFlow() {
                       <div className="bg-gray-50 rounded-xl p-4">
                         <div className="flex items-center justify-between mb-2">
                           <div className="font-medium text-gray-900">
-                            {text.front} <span className="text-red-500">*</span>
+                            {text.front}{" "}
+                            <span className="text-red-500">*</span>
                           </div>
-                          <div className="text-xs text-gray-500">{text.required}</div>
+                          <div className="text-xs text-gray-500">
+                            {text.required}
+                          </div>
                         </div>
 
                         {item.photoFrontPreview ? (
@@ -768,7 +856,11 @@ export default function BookingFlow() {
                                 accept="image/*"
                                 className="hidden"
                                 onChange={(e) =>
-                                  handleFileChange(item.id, "front", e.target.files?.[0] || null)
+                                  handleFileChange(
+                                    item.id,
+                                    "front",
+                                    e.target.files?.[0] || null
+                                  )
                                 }
                               />
                               {text.change}
@@ -781,12 +873,20 @@ export default function BookingFlow() {
                               accept="image/*"
                               className="hidden"
                               onChange={(e) =>
-                                handleFileChange(item.id, "front", e.target.files?.[0] || null)
+                                handleFileChange(
+                                  item.id,
+                                  "front",
+                                  e.target.files?.[0] || null
+                                )
                               }
                             />
                             <div className="flex flex-col items-center gap-2 text-gray-600">
                               <Camera size={28} />
-                              <span className="text-sm">{isFR ? "Téléverser une photo" : "Upload photo"}</span>
+                              <span className="text-sm">
+                                {isFR
+                                  ? "Téléverser une photo"
+                                  : "Upload photo"}
+                              </span>
                             </div>
                           </label>
                         )}
@@ -796,9 +896,12 @@ export default function BookingFlow() {
                       <div className="bg-gray-50 rounded-xl p-4">
                         <div className="flex items-center justify-between mb-2">
                           <div className="font-medium text-gray-900">
-                            {text.backSide} <span className="text-red-500">*</span>
+                            {text.backSide}{" "}
+                            <span className="text-red-500">*</span>
                           </div>
-                          <div className="text-xs text-gray-500">{text.required}</div>
+                          <div className="text-xs text-gray-500">
+                            {text.required}
+                          </div>
                         </div>
 
                         {item.photoBackPreview ? (
@@ -814,7 +917,11 @@ export default function BookingFlow() {
                                 accept="image/*"
                                 className="hidden"
                                 onChange={(e) =>
-                                  handleFileChange(item.id, "back", e.target.files?.[0] || null)
+                                  handleFileChange(
+                                    item.id,
+                                    "back",
+                                    e.target.files?.[0] || null
+                                  )
                                 }
                               />
                               {text.change}
@@ -827,12 +934,20 @@ export default function BookingFlow() {
                               accept="image/*"
                               className="hidden"
                               onChange={(e) =>
-                                handleFileChange(item.id, "back", e.target.files?.[0] || null)
+                                handleFileChange(
+                                  item.id,
+                                  "back",
+                                  e.target.files?.[0] || null
+                                )
                               }
                             />
                             <div className="flex flex-col items-center gap-2 text-gray-600">
                               <Camera size={28} />
-                              <span className="text-sm">{isFR ? "Téléverser une photo" : "Upload photo"}</span>
+                              <span className="text-sm">
+                                {isFR
+                                  ? "Téléverser une photo"
+                                  : "Upload photo"}
+                              </span>
                             </div>
                           </label>
                         )}
@@ -851,12 +966,16 @@ export default function BookingFlow() {
           </div>
         )}
 
-        {/* Step 3 */}
+        {/* Step 3: Date & Time */}
         {currentStep === 3 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.dateTitle}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {text.dateTitle}
+            </h2>
             <p className="text-gray-600 mb-6">
-              {isFR ? "Choisissez une date et une plage horaire." : "Choose a date and a time slot."}
+              {isFR
+                ? "Choisissez une date et une plage horaire."
+                : "Choose a date and a time slot."}
             </p>
 
             <div className="space-y-6">
@@ -913,7 +1032,11 @@ export default function BookingFlow() {
                         }`}
                       >
                         <div className="font-semibold">{slot.label}</div>
-                        {isBooked && <div className="text-xs mt-1">{isFR ? "Réservé" : "Booked"}</div>}
+                        {isBooked && (
+                          <div className="text-xs mt-1">
+                            {isFR ? "Réservé" : "Booked"}
+                          </div>
+                        )}
                       </button>
                     );
                   })}
@@ -927,29 +1050,40 @@ export default function BookingFlow() {
 
               {bookingData.selectedDate && (
                 <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl p-4">
-                  <strong>{isFR ? "Sélection" : "Selection"}:</strong> {formatDate(bookingData.selectedDate)}
+                  <strong>{isFR ? "Sélection" : "Selection"}:</strong>{" "}
+                  {formatDate(bookingData.selectedDate)}
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Step 4 */}
+        {/* Step 4: Details */}
         {currentStep === 4 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.detailsTitle}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {text.detailsTitle}
+            </h2>
             <p className="text-gray-600 mb-6">
-              {isFR ? "Entrez vos informations de contact." : "Enter your contact details."}
+              {isFR
+                ? "Entrez vos informations de contact."
+                : "Enter your contact details."}
             </p>
 
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isFR ? "Nom" : "Name"} <span className="text-red-500">*</span>
+                  {isFR ? "Nom" : "Name"}{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   value={bookingData.customerName}
-                  onChange={(e) => setBookingData((p) => ({ ...p, customerName: e.target.value }))}
+                  onChange={(e) =>
+                    setBookingData((p) => ({
+                      ...p,
+                      customerName: e.target.value,
+                    }))
+                  }
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {errors?.name && (
@@ -961,11 +1095,17 @@ export default function BookingFlow() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  WhatsApp <span className="text-red-500">*</span>
+                  {isFR ? "WhatsApp" : "WhatsApp"}{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   value={bookingData.customerWhatsapp}
-                  onChange={(e) => setBookingData((p) => ({ ...p, customerWhatsapp: e.target.value }))}
+                  onChange={(e) =>
+                    setBookingData((p) => ({
+                      ...p,
+                      customerWhatsapp: e.target.value,
+                    }))
+                  }
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {errors?.whatsapp && (
@@ -977,11 +1117,17 @@ export default function BookingFlow() {
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isFR ? "Adresse" : "Address"} <span className="text-red-500">*</span>
+                  {isFR ? "Adresse" : "Address"}{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   value={bookingData.customerAddress}
-                  onChange={(e) => setBookingData((p) => ({ ...p, customerAddress: e.target.value }))}
+                  onChange={(e) =>
+                    setBookingData((p) => ({
+                      ...p,
+                      customerAddress: e.target.value,
+                    }))
+                  }
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {errors?.address && (
@@ -997,18 +1143,29 @@ export default function BookingFlow() {
                 </label>
                 <input
                   value={bookingData.customerUnit}
-                  onChange={(e) => setBookingData((p) => ({ ...p, customerUnit: e.target.value }))}
+                  onChange={(e) =>
+                    setBookingData((p) => ({
+                      ...p,
+                      customerUnit: e.target.value,
+                    }))
+                  }
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email <span className="text-red-500">*</span>
+                  {isFR ? "Email" : "Email"}{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   value={bookingData.customerEmail}
-                  onChange={(e) => setBookingData((p) => ({ ...p, customerEmail: e.target.value }))}
+                  onChange={(e) =>
+                    setBookingData((p) => ({
+                      ...p,
+                      customerEmail: e.target.value,
+                    }))
+                  }
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 {errors?.email && (
@@ -1020,11 +1177,18 @@ export default function BookingFlow() {
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isFR ? "Notes (optionnel)" : "Additional notes (optional)"}
+                  {isFR
+                    ? "Notes (optionnel)"
+                    : "Additional notes (optional)"}
                 </label>
                 <textarea
                   value={bookingData.additionalNotes}
-                  onChange={(e) => setBookingData((p) => ({ ...p, additionalNotes: e.target.value }))}
+                  onChange={(e) =>
+                    setBookingData((p) => ({
+                      ...p,
+                      additionalNotes: e.target.value,
+                    }))
+                  }
                   rows={4}
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -1033,17 +1197,23 @@ export default function BookingFlow() {
           </div>
         )}
 
-        {/* Step 5 */}
+        {/* Step 5: Confirm */}
         {currentStep === 5 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{text.confirmTitle}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {text.confirmTitle}
+            </h2>
             <p className="text-gray-600 mb-6">
-              {isFR ? "Vérifiez les détails et confirmez." : "Review the details and confirm."}
+              {isFR
+                ? "Vérifiez les détails et confirmez."
+                : "Review the details and confirm."}
             </p>
 
             <div className="space-y-4">
               <div className="border border-gray-200 rounded-xl p-4">
-                <div className="font-semibold text-gray-900 mb-2">{isFR ? "Résumé" : "Summary"}</div>
+                <div className="font-semibold text-gray-900 mb-2">
+                  {isFR ? "Résumé" : "Summary"}
+                </div>
                 <div className="space-y-2">
                   {bookingData.items.map((it) => {
                     const svc = services.find((s) => s.id === it.serviceId);
@@ -1051,16 +1221,27 @@ export default function BookingFlow() {
                     const unit = svc?.price ?? 0;
                     const qty = Math.max(1, it.quantity || 1);
                     return (
-                      <div key={it.id} className="flex items-center justify-between text-sm">
-                        <div className="text-gray-700">{name} × {qty}</div>
-                        <div className="font-semibold text-gray-900">${(unit * qty).toFixed(2)}</div>
+                      <div
+                        key={it.id}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <div className="text-gray-700">
+                          {name} × {qty}
+                        </div>
+                        <div className="font-semibold text-gray-900">
+                          ${(unit * qty).toFixed(2)}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between">
-                  <div className="text-gray-700 font-semibold">{isFR ? "Total" : "Total"}</div>
-                  <div className="text-blue-700 text-xl font-bold">${itemsTotal.toFixed(2)}</div>
+                  <div className="text-gray-700 font-semibold">
+                    {isFR ? "Total" : "Total"}
+                  </div>
+                  <div className="text-blue-700 text-xl font-bold">
+                    ${itemsTotal.toFixed(2)}
+                  </div>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
                   {isFR ? "TVH 13% peut s’appliquer." : "13% HST may apply."}
@@ -1076,14 +1257,22 @@ export default function BookingFlow() {
                     className="mt-1"
                   />
                   <div>
-                    <div className="text-sm text-gray-900 font-medium">{text.authLabel}</div>
+                    <div className="text-sm text-gray-900 font-medium">
+                      {text.authLabel}
+                    </div>
                     <div className="text-xs text-gray-600 mt-1">
                       {text.authHint}{" "}
-                      <Link href={`/terms?lang=${lang}`} className="text-blue-600 hover:underline">
+                      <Link
+                        href={`/terms?lang=${lang}`}
+                        className="text-blue-600 hover:underline"
+                      >
                         {text.terms}
                       </Link>{" "}
                       ·{" "}
-                      <Link href={`/privacy?lang=${lang}`} className="text-blue-600 hover:underline">
+                      <Link
+                        href={`/privacy?lang=${lang}`}
+                        className="text-blue-600 hover:underline"
+                      >
                         {text.privacy}
                       </Link>
                     </div>
@@ -1104,57 +1293,54 @@ export default function BookingFlow() {
             </div>
           </div>
         )}
-      </div>
 
-      {/* ✅ FOOTER NAV: FIXO NO MOBILE / NORMAL NO DESKTOP */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur md:static md:border-0 md:bg-transparent md:backdrop-blur-0">
-        <div className="max-w-6xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
+        {/* ✅ NAV: dentro do card (não é fixo/sticky) */}
+        <div className="mt-8 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handleBack}
+            disabled={currentStep === 1 || isLoading}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all ${
+              currentStep === 1 || isLoading
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gray-100 hover:bg-gray-200 text-gray-800"
+            }`}
+          >
+            <ChevronLeft size={18} /> {text.back}
+          </button>
+
+          {currentStep < 5 ? (
             <button
               type="button"
-              onClick={handleBack}
-              disabled={currentStep === 1 || isLoading}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold transition-all ${
-                currentStep === 1 || isLoading
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-gray-100 hover:bg-gray-200 text-gray-800"
+              onClick={handleNext}
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold transition-all"
+            >
+              {text.continue} <ChevronRight size={18} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isLoading || !authorizationAccepted}
+              className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition-all ${
+                isLoading || !authorizationAccepted
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "bg-green-600 hover:bg-green-700 text-white"
               }`}
             >
-              <ChevronLeft size={18} /> {text.back}
+              {isLoading ? (
+                <>
+                  <Loader2 className="animate-spin" size={18} />{" "}
+                  {text.processing}
+                </>
+              ) : (
+                <>
+                  <Check size={18} /> {text.confirm}
+                </>
+              )}
             </button>
-
-            {currentStep < 5 ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={isLoading}
-                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold transition-all"
-              >
-                {text.continue} <ChevronRight size={18} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isLoading || !authorizationAccepted}
-                className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition-all ${
-                  isLoading || !authorizationAccepted
-                    ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                    : "bg-green-600 hover:bg-green-700 text-white"
-                }`}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="animate-spin" size={18} /> {text.processing}
-                  </>
-                ) : (
-                  <>
-                    <Check size={18} /> {text.confirm}
-                  </>
-                )}
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>
