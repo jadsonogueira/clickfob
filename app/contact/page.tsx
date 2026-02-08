@@ -71,7 +71,7 @@ export default function ContactPage({
             href="mailto:clickfobtoronto@gmail.com"
             className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-semibold"
           >
-            <Mail size={18} /> clickfob@gmail.com
+            <Mail size={18} /> clickfobtoronto@gmail.com
           </a>
         </section>
       </div>
