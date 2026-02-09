@@ -27,14 +27,22 @@ type UiService = {
 const ICON_BY_ID: Record<string, any> = {
   "fob-lf": Key,
   "fob-hf": Radio,
+  "remote-garage": Settings,
   "garage-remote": Settings,
 };
+
+const ALWAYS_VISIBLE_SERVICE_IDS = new Set(["remote-garage", "garage-remote"]);
 
 // ✅ regra única e segura para entender se está ativo
 function isServiceActive(s: ServiceApiItem) {
   if (typeof s.active === "boolean") return s.active;
   if (typeof s.enabled === "boolean") return s.enabled;
   return true; // default
+}
+
+function shouldShowOnHome(service: UiService) {
+  if (service.active) return true;
+  return ALWAYS_VISIBLE_SERVICE_IDS.has(service.id);
 }
 
 export default function ServicesSection({ lang }: { lang: Lang }) {
@@ -54,7 +62,6 @@ export default function ServicesSection({ lang }: { lang: Lang }) {
         const apiList: ServiceApiItem[] =
           data?.services || data?.data?.services || [];
 
-        // ✅ NÃO filtra mais! Mantém também os desativados para "rachurar"
         const normalized: UiService[] = (apiList || []).map((s) => ({
           id: String(s.id),
           name: String(s.name),
@@ -63,7 +70,9 @@ export default function ServicesSection({ lang }: { lang: Lang }) {
           active: isServiceActive(s),
         }));
 
-        if (!cancelled) setServices(normalized);
+        const visible = normalized.filter(shouldShowOnHome);
+
+        if (!cancelled) setServices(visible);
       } catch {
         if (!cancelled) setServices([]);
       } finally {
