@@ -70,18 +70,20 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
-          <Link href={navHref("/")} className="flex items-center gap-2">
-            {/* ✅ Logo no estilo do footer, com alto contraste no header */}
-            <span className="flex items-center gap-2 font-black italic tracking-tight">
-              <span className="text-2xl text-gray-900">CLICKFOB</span>
-              <span
-                className="text-2xl leading-none text-blue-600"
-                aria-hidden="true"
-              >
-                ⚡
-              </span>
-            </span>
-          </Link>
+          <Link href={navHref("/")} className="flex items-center">
+  <span className="flex items-center gap-2 font-extrabold italic tracking-tight">
+    <span className="text-2xl text-gray-900">
+      CLICKFOB
+    </span>
+    <span
+      className="text-blue-600 text-xl leading-none -translate-y-[1px]"
+      aria-hidden="true"
+    >
+      ⚡
+    </span>
+  </span>
+</Link>
+
 
           <nav className="hidden md:flex items-center gap-6">
             <Link
