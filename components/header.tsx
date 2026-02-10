@@ -71,8 +71,15 @@ export default function Header() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           <Link href={navHref("/")} className="flex items-center gap-2">
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
-              ClickFob
+            {/* ✅ Logo no estilo do footer, com alto contraste no header */}
+            <span className="flex items-center gap-2 font-black italic tracking-tight">
+              <span className="text-2xl text-gray-900">CLICKFOB</span>
+              <span
+                className="text-2xl leading-none text-blue-600"
+                aria-hidden="true"
+              >
+                ⚡
+              </span>
             </span>
           </Link>
 
@@ -128,6 +135,7 @@ export default function Header() {
                 FR
               </Link>
             </div>
+
             <Link
               href={navHref("/book")}
               className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg"
@@ -139,6 +147,7 @@ export default function Header() {
           <button
             className="md:hidden p-2 text-gray-600"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -202,6 +211,7 @@ export default function Header() {
                   FR
                 </Link>
               </div>
+
               <Link
                 href={navHref("/book")}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-semibold transition-all text-center"
