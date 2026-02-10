@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Zap } from "lucide-react";
 
 type Lang = "en" | "fr";
 
@@ -70,20 +70,13 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
-          <Link href={navHref("/")} className="flex items-center">
-  <span className="flex items-center gap-2 font-extrabold italic tracking-tight">
-    <span className="text-2xl text-gray-900">
-      CLICKFOB
-    </span>
-    <span
-      className="text-blue-600 text-xl leading-none -translate-y-[1px]"
-      aria-hidden="true"
-    >
-      ⚡
-    </span>
-  </span>
-</Link>
-
+          <Link href={navHref("/")} className="flex items-center gap-2">
+            {/* ✅ Mesma logo do footer (mesmos parâmetros), só com contraste no header */}
+            <span className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter flex items-center gap-2 leading-none">
+              ClickFob
+              <Zap className="w-5 h-5 text-blue-500 fill-current" />
+            </span>
+          </Link>
 
           <nav className="hidden md:flex items-center gap-6">
             <Link
