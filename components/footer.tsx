@@ -16,7 +16,7 @@ export default function Footer() {
   const sp = useSearchParams();
   const pathname = usePathname();
 
-  // Hide footer on ultra minimal page
+  // ✅ Ultra minimal landing: hide global footer on /fob-copy
   if ((pathname || "").startsWith("/fob-copy")) return null;
 
   const lang = useMemo(() => getLang(sp), [sp]);
@@ -43,8 +43,7 @@ export default function Footer() {
             email: "Nous envoyer un email",
           }
         : {
-            tagline:
-              "Professional key fob duplication and garage remote service across Toronto & the GTA.",
+            tagline: "Professional key fob duplication and garage remote service across Toronto & the GTA.",
             contact: "Contact",
             quickLinks: "Quick Links",
             book: "Book a Service",
@@ -52,8 +51,7 @@ export default function Footer() {
             compatibility: "Compatibility",
             terms: "Terms & Conditions",
             privacy: "Privacy Policy",
-            disclaimer:
-              "Client authorization required. Duplication subject to technical compatibility.",
+            disclaimer: "Client authorization required. Duplication subject to technical compatibility.",
             rights: "All rights reserved.",
             whatsapp: "Message us on WhatsApp",
             sms: "Send us a text message",
@@ -72,17 +70,18 @@ export default function Footer() {
 
   return (
     <footer className="bg-black text-slate-400 border-t border-slate-900">
-      <div className="max-w-6xl mx-auto px-6 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
-          
-          {/* Brand */}
+      <div className="max-w-6xl mx-auto px-6 py-12 md:py-16">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 md:gap-12">
+          {/* Brand Column */}
           <div className="md:col-span-2">
-            <h3 className="text-2xl font-black text-white mb-6 uppercase italic tracking-tighter flex items-center gap-2">
+            <h3 className="text-2xl font-black text-white mb-5 md:mb-6 uppercase italic tracking-tighter flex items-center gap-2">
               ClickFob <Zap className="w-5 h-5 text-blue-500 fill-current" />
             </h3>
-            <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-sm mb-6">
+
+            <p className="text-slate-400 text-sm font-medium leading-relaxed max-w-sm mb-5 md:mb-6">
               {t.tagline}
             </p>
+
             <div className="inline-flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-xl border border-slate-800">
               <ShieldCheck className="w-4 h-4 text-emerald-500" />
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
@@ -91,15 +90,13 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Contact Column */}
+          {/* Contact Column (compact + no phone/email shown) */}
           <div>
-            <h4 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6">
+            <h4 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-5 md:mb-6">
               {t.contact}
             </h4>
 
-            <div className="space-y-4">
-              
-              {/* WhatsApp */}
+            <div className="space-y-3 md:space-y-4">
               <a
                 href="https://wa.me/14167707036"
                 target="_blank"
@@ -112,7 +109,6 @@ export default function Footer() {
                 <span>{t.whatsapp}</span>
               </a>
 
-              {/* SMS */}
               <a
                 href="sms:+14167707036"
                 className="group flex items-center gap-3 hover:text-blue-500 transition-all font-bold text-sm"
@@ -123,7 +119,6 @@ export default function Footer() {
                 <span>{t.sms}</span>
               </a>
 
-              {/* Email */}
               <a
                 href="mailto:clickfobtoronto@gmail.com"
                 className="group flex items-center gap-3 hover:text-blue-500 transition-all font-bold text-sm"
@@ -138,9 +133,10 @@ export default function Footer() {
 
           {/* Links Column */}
           <div>
-            <h4 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6">
+            <h4 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-5 md:mb-6">
               {t.quickLinks}
             </h4>
+
             <nav className="flex flex-col space-y-3">
               {[
                 { label: t.book, path: "/book" },
@@ -161,8 +157,8 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Bottom */}
-        <div className="border-t border-slate-900 mt-16 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+        {/* Bottom Bar */}
+        <div className="border-t border-slate-900 mt-12 md:mt-16 pt-7 md:pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
             &copy; {new Date().getFullYear()} ClickFob Duplication. {t.rights}
           </p>
