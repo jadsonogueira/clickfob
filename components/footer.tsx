@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Mail, MessageCircle, ShieldCheck, Zap } from "lucide-react";
+import { Mail, MessageCircle, ShieldCheck, Zap, Smartphone } from "lucide-react";
 
 type Lang = "en" | "fr";
 
@@ -16,7 +16,7 @@ export default function Footer() {
   const sp = useSearchParams();
   const pathname = usePathname();
 
-  // ✅ Ultra minimal landing: hide global footer on /fob-copy
+  // Hide footer on ultra minimal page
   if ((pathname || "").startsWith("/fob-copy")) return null;
 
   const lang = useMemo(() => getLang(sp), [sp]);
@@ -26,7 +26,8 @@ export default function Footer() {
     () =>
       isFR
         ? {
-            tagline: "Service professionnel de duplication de porte-clés (fob) et télécommandes de garage à Toronto et dans le GTA.",
+            tagline:
+              "Service professionnel de duplication de porte-clés (fob) et télécommandes de garage à Toronto et dans le GTA.",
             contact: "Contact",
             quickLinks: "Liens Rapides",
             book: "Réserver",
@@ -34,11 +35,16 @@ export default function Footer() {
             compatibility: "Compatibilité",
             terms: "Conditions d’utilisation",
             privacy: "Politique de confidentialité",
-            disclaimer: "Le client doit être autorisé. Service soumis à la compatibilité technique.",
+            disclaimer:
+              "Le client doit être autorisé. Service soumis à la compatibilité technique.",
             rights: "Tous droits réservés.",
+            whatsapp: "Nous écrire sur WhatsApp",
+            sms: "Envoyer un SMS",
+            email: "Nous envoyer un email",
           }
         : {
-            tagline: "Professional key fob duplication and garage remote service across Toronto & the GTA.",
+            tagline:
+              "Professional key fob duplication and garage remote service across Toronto & the GTA.",
             contact: "Contact",
             quickLinks: "Quick Links",
             book: "Book a Service",
@@ -46,8 +52,12 @@ export default function Footer() {
             compatibility: "Compatibility",
             terms: "Terms & Conditions",
             privacy: "Privacy Policy",
-            disclaimer: "Client authorization required. Duplication subject to technical compatibility.",
+            disclaimer:
+              "Client authorization required. Duplication subject to technical compatibility.",
             rights: "All rights reserved.",
+            whatsapp: "Message us on WhatsApp",
+            sms: "Send us a text message",
+            email: "Send us an email",
           },
     [isFR]
   );
@@ -65,7 +75,7 @@ export default function Footer() {
       <div className="max-w-6xl mx-auto px-6 py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           
-          {/* Brand Column */}
+          {/* Brand */}
           <div className="md:col-span-2">
             <h3 className="text-2xl font-black text-white mb-6 uppercase italic tracking-tighter flex items-center gap-2">
               ClickFob <Zap className="w-5 h-5 text-blue-500 fill-current" />
@@ -75,14 +85,21 @@ export default function Footer() {
             </p>
             <div className="inline-flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-xl border border-slate-800">
               <ShieldCheck className="w-4 h-4 text-emerald-500" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">{t.disclaimer}</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">
+                {t.disclaimer}
+              </span>
             </div>
           </div>
 
           {/* Contact Column */}
           <div>
-            <h4 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6">{t.contact}</h4>
+            <h4 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6">
+              {t.contact}
+            </h4>
+
             <div className="space-y-4">
+              
+              {/* WhatsApp */}
               <a
                 href="https://wa.me/14167707036"
                 target="_blank"
@@ -92,8 +109,21 @@ export default function Footer() {
                 <div className="p-2 bg-slate-900 rounded-lg group-hover:bg-blue-600/10 transition-colors">
                   <MessageCircle size={18} className="text-blue-500" />
                 </div>
-                <span>+1 (416) 770-7036</span>
+                <span>{t.whatsapp}</span>
               </a>
+
+              {/* SMS */}
+              <a
+                href="sms:+14167707036"
+                className="group flex items-center gap-3 hover:text-blue-500 transition-all font-bold text-sm"
+              >
+                <div className="p-2 bg-slate-900 rounded-lg group-hover:bg-blue-600/10 transition-colors">
+                  <Smartphone size={18} className="text-blue-500" />
+                </div>
+                <span>{t.sms}</span>
+              </a>
+
+              {/* Email */}
               <a
                 href="mailto:clickfobtoronto@gmail.com"
                 className="group flex items-center gap-3 hover:text-blue-500 transition-all font-bold text-sm"
@@ -101,14 +131,16 @@ export default function Footer() {
                 <div className="p-2 bg-slate-900 rounded-lg group-hover:bg-blue-600/10 transition-colors">
                   <Mail size={18} className="text-blue-500" />
                 </div>
-                <span className="truncate">clickfobtoronto@gmail.com</span>
+                <span>{t.email}</span>
               </a>
             </div>
           </div>
 
           {/* Links Column */}
           <div>
-            <h4 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6">{t.quickLinks}</h4>
+            <h4 className="text-xs font-black text-white uppercase tracking-[0.2em] mb-6">
+              {t.quickLinks}
+            </h4>
             <nav className="flex flex-col space-y-3">
               {[
                 { label: t.book, path: "/book" },
@@ -129,15 +161,15 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Bottom Bar */}
+        {/* Bottom */}
         <div className="border-t border-slate-900 mt-16 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
             &copy; {new Date().getFullYear()} ClickFob Duplication. {t.rights}
           </p>
           <div className="flex gap-4">
-             <div className="w-8 h-5 bg-slate-900 rounded border border-slate-800" /> {/* Visa Placeholder */}
-             <div className="w-8 h-5 bg-slate-900 rounded border border-slate-800" /> {/* MC Placeholder */}
-             <div className="w-8 h-5 bg-slate-900 rounded border border-slate-800" /> {/* Amex Placeholder */}
+            <div className="w-8 h-5 bg-slate-900 rounded border border-slate-800" />
+            <div className="w-8 h-5 bg-slate-900 rounded border border-slate-800" />
+            <div className="w-8 h-5 bg-slate-900 rounded border border-slate-800" />
           </div>
         </div>
       </div>
