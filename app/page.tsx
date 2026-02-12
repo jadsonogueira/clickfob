@@ -1,4 +1,4 @@
-Import Link from "next/link";
+import Link from "next/link";
 import ServicesSection from "@/components/services-section";
 import {
   Zap,
