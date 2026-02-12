@@ -71,8 +71,12 @@ export default function HomePage({
         q4: "Offrez-vous des remboursements?",
         a4: "Aucun remboursement n’est offert après une tentative de duplication. Voir Conditions.",
         ctaBottomTitle: "Prêt à commencer?",
-        ctaBottomText: "Commencez votre commande et téléversez des photos pour vérifier la compatibilité.",
+        ctaBottomText:
+          "Commencez votre commande et téléversez des photos pour vérifier la compatibilité.",
         getStarted: "Commencer",
+        jumpServices: "Services",
+        jumpPickup: "Ramassage",
+        jumpFaq: "FAQ",
       }
     : {
         heroTitle1: "Key Fob Copy in Toronto",
@@ -113,55 +117,87 @@ export default function HomePage({
         q4: "Do you offer refunds?",
         a4: "No refunds after a duplication attempt has been made. See Terms.",
         ctaBottomTitle: "Ready to start?",
-        ctaBottomText: "Start your order and upload photos so we can verify compatibility.",
+        ctaBottomText:
+          "Start your order and upload photos so we can verify compatibility.",
         getStarted: "Get Started",
+        jumpServices: "Services",
+        jumpPickup: "Pickup",
+        jumpFaq: "FAQ",
       };
 
   const withLang = (path: string) => `${path}?lang=${lang}`;
 
+  const hrefHash = (hash: string) => {
+    // mantém lang e só navega para âncora na mesma página
+    return `/?lang=${lang}#${hash}`;
+  };
+
   return (
     <div className="flex flex-col bg-white text-slate-900 font-sans tracking-tight">
-      {/* Hero Section - Estilo Tech Bold */}
-      <section className="relative pt-20 pb-24 lg:pt-32 lg:pb-36 bg-slate-950 text-white overflow-hidden">
+      {/* Hero */}
+      <section className="relative pt-16 pb-12 sm:pt-20 sm:pb-16 lg:pt-32 lg:pb-28 bg-slate-950 text-white overflow-hidden">
         <div className="absolute top-0 right-0 w-1/2 h-full bg-blue-600/10 skew-x-12 translate-x-1/3" />
+
         <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
           <div className="max-w-4xl">
-            <div className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-400 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-8 border border-blue-500/30">
+            <div className="inline-flex items-center gap-2 bg-blue-500/20 text-blue-400 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-6 sm:mb-8 border border-blue-500/30">
               <Zap className="w-3 h-3 fill-current" /> {t.trust1}
             </div>
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-8 leading-[0.9] uppercase italic">
+
+            <h1 className="text-4xl md:text-7xl lg:text-8xl font-black mb-6 sm:mb-8 leading-[0.95] uppercase italic">
               {t.heroTitle1}
               <br />
               <span className="text-blue-500">{t.heroTitle2}</span>
             </h1>
-            <p className="text-xl md:text-2xl text-slate-400 mb-12 max-w-2xl leading-relaxed">
+
+            <p className="text-lg sm:text-xl md:text-2xl text-slate-400 mb-7 sm:mb-10 max-w-2xl leading-relaxed">
               {t.heroSubtitle}
             </p>
+
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
                 href={withLang("/book")}
-                className="bg-white text-black hover:bg-blue-500 hover:text-white px-10 py-5 rounded-2xl font-black text-xl transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 uppercase tracking-tighter"
+                className="bg-white text-black hover:bg-blue-500 hover:text-white px-8 sm:px-10 py-4 sm:py-5 rounded-2xl font-black text-lg sm:text-xl transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 uppercase tracking-tighter"
               >
-                {t.ctaStart} <ArrowRight size={24} />
+                {t.ctaStart} <ArrowRight size={22} />
               </Link>
+
               <Link
                 href={withLang("/compatibility")}
-                className="bg-transparent border-2 border-slate-800 hover:border-blue-500 text-white px-10 py-5 rounded-2xl font-black text-xl transition-all flex items-center justify-center gap-3 uppercase tracking-tighter"
+                className="bg-transparent border-2 border-slate-800 hover:border-blue-500 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-2xl font-black text-lg sm:text-xl transition-all flex items-center justify-center gap-3 uppercase tracking-tighter"
               >
-                <Search size={22} /> {t.ctaCompat}
+                <Search size={20} /> {t.ctaCompat}
               </Link>
             </div>
-            <p className="text-slate-500 text-xs mt-8 font-bold uppercase tracking-widest">
+
+            {/* Jump Pills (mobile-first) */}
+            <div className="mt-6 sm:mt-8 flex flex-wrap gap-2">
+              {[
+                { label: t.jumpServices, hash: "services" },
+                { label: t.jumpPickup, hash: "pickup" },
+                { label: t.jumpFaq, hash: "faq" },
+              ].map((x) => (
+                <Link
+                  key={x.hash}
+                  href={hrefHash(x.hash)}
+                  className="bg-slate-900/60 hover:bg-slate-900 text-slate-200 border border-slate-800 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest transition-all"
+                >
+                  {x.label}
+                </Link>
+              ))}
+            </div>
+
+            <p className="text-slate-500 text-xs mt-6 sm:mt-8 font-bold uppercase tracking-widest">
               {t.disclaimer}
             </p>
           </div>
         </div>
       </section>
 
-      {/* Trust Badges - Minimalist Dark */}
-      <section className="py-10 bg-slate-900 border-y border-slate-800 text-white">
+      {/* Trust Badges */}
+      <section className="py-7 sm:py-10 bg-slate-900 border-y border-slate-800 text-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
             {[
               { icon: Clock, title: t.trust1, desc: t.trust1d },
               { icon: Shield, title: t.trust2, desc: t.trust2d },
@@ -172,7 +208,9 @@ export default function HomePage({
                   <prop.icon size={24} />
                 </div>
                 <div>
-                  <h3 className="font-black uppercase text-sm tracking-widest">{prop.title}</h3>
+                  <h3 className="font-black uppercase text-sm tracking-widest">
+                    {prop.title}
+                  </h3>
                   <p className="text-xs text-slate-400 font-bold">{prop.desc}</p>
                 </div>
               </div>
@@ -181,14 +219,15 @@ export default function HomePage({
         </div>
       </section>
 
-      {/* How it works - Step-by-Step Tech Layout */}
-      <section className="py-24 bg-white">
+      {/* How it works */}
+      <section className="py-12 md:py-24 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="mb-16">
-            <h2 className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter italic">
+          <div className="mb-9 md:mb-16">
+            <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter">
               {t.howTitle}
             </h2>
           </div>
+
           <div className="grid md:grid-cols-4 gap-4">
             {[
               { title: t.step1, desc: t.step1d, icon: ArrowRight },
@@ -196,57 +235,76 @@ export default function HomePage({
               { title: t.step3, desc: t.step3d, icon: Search },
               { title: t.step4, desc: t.step4d, icon: CheckCircle2 },
             ].map((s, idx) => (
-              <div key={idx} className="group relative bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-8 hover:border-blue-500 transition-all hover:shadow-2xl hover:shadow-blue-100">
-                <div className="text-5xl font-black text-slate-200 mb-6 group-hover:text-blue-100 transition-colors">0{idx + 1}</div>
+              <div
+                key={idx}
+                className="group relative bg-slate-50 border-2 border-slate-100 rounded-[2rem] p-6 md:p-8 hover:border-blue-500 transition-all hover:shadow-2xl hover:shadow-blue-100"
+              >
+                <div className="text-5xl font-black text-slate-200 mb-5 md:mb-6 group-hover:text-blue-100 transition-colors">
+                  0{idx + 1}
+                </div>
                 <div className="mb-4 text-blue-600">
                   <s.icon size={32} />
                 </div>
-                <h3 className="text-xl font-black uppercase mb-3 leading-tight">{s.title}</h3>
-                <p className="text-sm text-slate-500 font-medium leading-relaxed">{s.desc}</p>
+                <h3 className="text-lg md:text-xl font-black uppercase mb-3 leading-tight">
+                  {s.title}
+                </h3>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                  {s.desc}
+                </p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Services Section - Mantido original conforme solicitado */}
-      <div className="bg-slate-50 py-12">
+      {/* Services */}
+      <div id="services" className="bg-slate-50 py-7 md:py-12 scroll-mt-24">
         <ServicesSection lang={lang} />
       </div>
 
-      {/* Pickup & Delivery - Contrast Design */}
-      <section className="py-24 bg-white">
+      {/* Pickup & Delivery */}
+      <section id="pickup" className="py-12 md:py-24 bg-white scroll-mt-24">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-slate-950 text-white rounded-[2.5rem] p-10 flex flex-col justify-between overflow-hidden relative group transition-transform hover:scale-[1.02]">
-                <Store className="absolute -right-8 -bottom-8 w-40 h-40 text-white/5 group-hover:text-blue-500/10 transition-colors" />
-                <div className="relative z-10">
-                    <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center mb-6">
-                        <Store size={28} />
-                    </div>
-                    <h3 className="text-3xl font-black uppercase mb-4 italic">{t.pickup}</h3>
-                    <p className="text-slate-400 text-lg font-medium">{t.pickupd}</p>
+          <div className="grid md:grid-cols-2 gap-6 md:gap-8">
+            <div className="bg-slate-950 text-white rounded-[2rem] md:rounded-[2.5rem] p-7 md:p-10 flex flex-col justify-between overflow-hidden relative group transition-transform hover:scale-[1.02]">
+              <Store className="absolute -right-8 -bottom-8 w-36 h-36 md:w-40 md:h-40 text-white/5 group-hover:text-blue-500/10 transition-colors" />
+              <div className="relative z-10">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-blue-600 flex items-center justify-center mb-5 md:mb-6">
+                  <Store size={26} />
                 </div>
+                <h3 className="text-2xl md:text-3xl font-black uppercase mb-3 md:mb-4 italic">
+                  {t.pickup}
+                </h3>
+                <p className="text-slate-400 text-base md:text-lg font-medium">
+                  {t.pickupd}
+                </p>
+              </div>
             </div>
-            
-            <div className="bg-blue-600 text-white rounded-[2.5rem] p-10 flex flex-col justify-between overflow-hidden relative group transition-transform hover:scale-[1.02]">
-                <Truck className="absolute -right-8 -bottom-8 w-40 h-40 text-black/5 group-hover:text-white/10 transition-colors" />
-                <div className="relative z-10">
-                    <div className="w-14 h-14 rounded-2xl bg-white text-blue-600 flex items-center justify-center mb-6">
-                        <Truck size={28} />
-                    </div>
-                    <h3 className="text-3xl font-black uppercase mb-4 italic">{t.delivery}</h3>
-                    <p className="text-blue-100 text-lg font-medium">{t.deliveryd}</p>
+
+            <div className="bg-blue-600 text-white rounded-[2rem] md:rounded-[2.5rem] p-7 md:p-10 flex flex-col justify-between overflow-hidden relative group transition-transform hover:scale-[1.02]">
+              <Truck className="absolute -right-8 -bottom-8 w-36 h-36 md:w-40 md:h-40 text-black/5 group-hover:text-white/10 transition-colors" />
+              <div className="relative z-10">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white text-blue-600 flex items-center justify-center mb-5 md:mb-6">
+                  <Truck size={26} />
                 </div>
+                <h3 className="text-2xl md:text-3xl font-black uppercase mb-3 md:mb-4 italic">
+                  {t.delivery}
+                </h3>
+                <p className="text-blue-100 text-base md:text-lg font-medium">
+                  {t.deliveryd}
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* FAQ - Clean & Structured */}
-      <section className="py-24 bg-slate-50">
+      {/* FAQ */}
+      <section id="faq" className="py-12 md:py-24 bg-slate-50 scroll-mt-24">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <h2 className="text-4xl font-black uppercase italic mb-12 text-center">{t.faqTitle}</h2>
+          <h2 className="text-3xl md:text-4xl font-black uppercase italic mb-9 md:mb-12 text-center">
+            {t.faqTitle}
+          </h2>
           <div className="space-y-4">
             {[
               { q: t.q1, a: t.a1 },
@@ -254,30 +312,37 @@ export default function HomePage({
               { q: t.q3, a: t.a3 },
               { q: t.q4, a: t.a4 },
             ].map((item) => (
-              <div key={item.q} className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-                <h3 className="text-lg font-black uppercase mb-3 text-blue-600">{item.q}</h3>
-                <p className="text-slate-600 font-medium leading-relaxed">{item.a}</p>
+              <div
+                key={item.q}
+                className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm"
+              >
+                <h3 className="text-base md:text-lg font-black uppercase mb-3 text-blue-600">
+                  {item.q}
+                </h3>
+                <p className="text-slate-600 font-medium leading-relaxed">
+                  {item.a}
+                </p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Final CTA - Same as Tech Page */}
-      <section className="py-24 bg-slate-950 text-white text-center relative overflow-hidden">
+      {/* Final CTA */}
+      <section className="py-14 md:py-24 bg-slate-950 text-white text-center relative overflow-hidden">
         <div className="absolute inset-0 bg-blue-600/5" />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 relative z-10">
-          <h2 className="text-5xl md:text-7xl font-black uppercase italic mb-8 tracking-tighter">
+          <h2 className="text-4xl md:text-7xl font-black uppercase italic mb-7 md:mb-8 tracking-tighter">
             {t.ctaBottomTitle}
           </h2>
-          <p className="text-xl text-slate-400 mb-12 font-medium">
+          <p className="text-lg md:text-xl text-slate-400 mb-9 md:mb-12 font-medium">
             {t.ctaBottomText}
           </p>
           <Link
             href={withLang("/book")}
-            className="inline-flex items-center gap-4 bg-blue-600 text-white hover:bg-white hover:text-black px-12 py-6 rounded-2xl font-black text-2xl transition-all shadow-2xl shadow-blue-900/40 uppercase tracking-tighter"
+            className="inline-flex items-center gap-4 bg-blue-600 text-white hover:bg-white hover:text-black px-10 md:px-12 py-5 md:py-6 rounded-2xl font-black text-xl md:text-2xl transition-all shadow-2xl shadow-blue-900/40 uppercase tracking-tighter"
           >
-            {t.getStarted} <ArrowRight size={28} />
+            {t.getStarted} <ArrowRight size={26} />
           </Link>
         </div>
       </section>
