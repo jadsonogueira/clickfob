@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Mail, MessageCircle, MapPin } from "lucide-react";
+import { Mail, MessageCircle, MapPin, Smartphone } from "lucide-react";
 
 type Lang = "en" | "fr";
 
@@ -26,7 +26,11 @@ export default function ContactPage({
         area: "Zone de service",
         areaText: "Toronto & GTA",
         whatsapp: "WhatsApp",
+        sms: "SMS",
         email: "Email",
+        whatsappCta: "Nous écrire sur WhatsApp",
+        smsCta: "Envoyer un SMS",
+        emailCta: "Nous envoyer un email",
       }
     : {
         title: "Contact",
@@ -36,7 +40,11 @@ export default function ContactPage({
         area: "Service area",
         areaText: "Toronto & GTA",
         whatsapp: "WhatsApp",
+        sms: "SMS",
         email: "Email",
+        whatsappCta: "Message us on WhatsApp",
+        smsCta: "Send us a text message",
+        emailCta: "Send us an email",
       };
 
   const withLang = (path: string) => `${path}?lang=${lang}`;
@@ -53,6 +61,7 @@ export default function ContactPage({
       <p className="text-gray-700 mb-8">{t.subtitle}</p>
 
       <div className="grid md:grid-cols-2 gap-6">
+        {/* WhatsApp */}
         <section className="bg-white rounded-2xl shadow-sm border p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">{t.whatsapp}</h2>
           <a
@@ -61,17 +70,29 @@ export default function ContactPage({
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-xl font-semibold"
           >
-            <MessageCircle size={18} /> +1 (416) 770-7036
+            <MessageCircle size={18} /> {t.whatsappCta}
           </a>
         </section>
 
+        {/* SMS */}
         <section className="bg-white rounded-2xl shadow-sm border p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">{t.sms}</h2>
+          <a
+            href="sms:+14167707036"
+            className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-950 text-white px-5 py-3 rounded-xl font-semibold"
+          >
+            <Smartphone size={18} /> {t.smsCta}
+          </a>
+        </section>
+
+        {/* Email */}
+        <section className="bg-white rounded-2xl shadow-sm border p-6 md:col-span-2">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">{t.email}</h2>
           <a
             href="mailto:clickfobtoronto@gmail.com"
             className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-semibold"
           >
-            <Mail size={18} /> clickfobtoronto@gmail.com
+            <Mail size={18} /> {t.emailCta}
           </a>
         </section>
       </div>
